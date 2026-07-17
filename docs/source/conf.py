@@ -73,10 +73,12 @@ pygments_style = 'sphinx'
 
 # -- MyST (Markdown) ------------------------------------------------------
 
+# Note: 'linkify' (auto-linking of bare URLs) is intentionally omitted because it
+# needs the optional 'linkify-it-py' package. The docs use explicit links, so add
+# it back here (and 'linkify-it-py' to docs/requirements.txt) only if you want it.
 myst_enable_extensions = [
     'colon_fence',
     'deflist',
-    'linkify',
 ]
 myst_heading_anchors = 3
 

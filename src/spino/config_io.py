@@ -89,6 +89,42 @@ TIMEZONES = [
 ]
 
 # --------------------------------------------------------------------------- #
+#  Built-in observatory / instrument presets for the Observatory tab dropdown.
+#  Selecting a preset auto-fills every OBSERVATORY field; the extra "New" entry
+#  lets the user type their own values in the same fields.
+# --------------------------------------------------------------------------- #
+OBSERVATORY_PRESET_NEW = "New"
+OBSERVATORY_PRESETS: Dict[str, Dict[str, Any]] = {
+    "CRIRES+": {
+        "name": "VLT",
+        "telescope": "VLT UT3 (Melipal)",
+        "instrument": "CRIRES+",
+        "lat": -24.6275,
+        "lon": -70.4044,
+        "alt": 2635,
+        "timezone": "America/Santiago",
+    },
+    "IGRINS-2": {
+        "name": "Gemini North",
+        "telescope": "Gemini North",
+        "instrument": "IGRINS-2",
+        "lat": 19.8238,
+        "lon": -155.4691,
+        "alt": 4213,
+        "timezone": "Pacific/Honolulu",
+    },
+    "GIANO-B": {
+        "name": "TNG",
+        "telescope": "TNG",
+        "instrument": "GIANO-B",
+        "lat": 28.7569,
+        "lon": -17.8850,
+        "alt": 2387,
+        "timezone": "Atlantic/Canary",
+    },
+}
+
+# --------------------------------------------------------------------------- #
 #  Help text (parameter -> one-line description) for the HelpButton popups.
 # --------------------------------------------------------------------------- #
 HELP: Dict[str, Dict[str, str]] = {
@@ -108,6 +144,8 @@ HELP: Dict[str, Dict[str, str]] = {
                         "'contains', where the column text matches).",
     },
     "Observatory": {
+        "preset": "Pick a built-in telescope/instrument to auto-fill every field "
+                  "below, or 'New' to enter your own values.",
         "name": "Short label used in output filenames.",
         "telescope": "Telescope name (documentation only).",
         "instrument": "Instrument name (documentation only).",
@@ -167,7 +205,9 @@ HELP: Dict[str, Dict[str, str]] = {
                     "all other tabs, written to a settings.json inside OUTPUT_DIR, "
                     "and executed in a background process.",
         "Run": "Collect the configuration and start the pipeline. Disabled while a "
-               "run is in progress.",
+               "run is in progress. If OUTPUT_DIR already holds results, a prompt "
+               "asks whether to delete them and run a fresh search (No cancels "
+               "without starting).",
         "Stop": "Terminate the running pipeline process.",
         "Save preset": "Write the current form values to a JSON file you choose.",
         "Load preset": "Repopulate every tab from a previously saved JSON preset.",

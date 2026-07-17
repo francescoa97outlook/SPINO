@@ -16,7 +16,7 @@ each tab opens a help popup describing that tab's parameters.
 |---|---|
 | **Catalog** | Which NASA Exoplanet Archive subset to load (`NEA` / `TESS` / `BOTH`), whether to fetch online, timeout, and the catalog cache directory. |
 | **Filters** | The desert filter (`all` / `desert` / `nondesert`) and an editable **EXTRA_FILTERS** table: add rows of `column` + `min`/`max` (or `contains`); they are applied in sequence (logical AND). |
-| **Observatory** | Site name (used in output filenames), telescope, instrument, latitude, longitude, altitude, and timezone. |
+| **Observatory** | A preset picker (CRIRES+, IGRINS-2, GIANO-B, or `New`) that auto-fills the fields, then site name (used in output filenames), telescope, instrument, latitude, longitude, altitude, and timezone. |
 | **Constraints** | Proposal window (start/end), observing constraints (min target altitude, max Sun altitude, moon distance), per-event coverage fractions, time resolution, and preselection year. |
 | **Custom Planets** | A JSON list of hand-entered targets injected in addition to the filtered catalog. Use **Insert example** to add a template, **Validate JSON** to check it. |
 | **Telluric** | The sky-transmission FITS (leave blank to disable the telluric page), the wavelength slice, RV grid, and synthetic-window parameters. |
@@ -26,11 +26,16 @@ each tab opens a help popup describing that tab's parameters.
 
 Open the **Run** tab and press **▶ Run**. The app:
 
-1. collects every field into a `settings.json` (written inside `OUTPUT_DIR`),
-2. launches the pipeline in a background subprocess,
-3. streams its log into the dark log pane (press **■ Stop** to terminate),
-4. when it finishes, lists the generated `*.pdf` / `*.csv` under **Generated
+1. if `OUTPUT_DIR` already contains results, asks whether to delete them and run a
+   fresh search; choosing **No** cancels the run and keeps the old results,
+2. collects every field into a `settings.json` (written inside `OUTPUT_DIR`),
+3. launches the pipeline in a background subprocess,
+4. streams its log into the dark log pane (press **■ Stop** to terminate),
+5. when it finishes, lists the generated `*.pdf` / `*.csv` under **Generated
    files**. **Double-click** any of them to open it in your system viewer.
+
+Because each confirmed run starts from an empty `OUTPUT_DIR`, stale folders from a
+previous search (planets no longer selected) never linger.
 
 ## Presets
 

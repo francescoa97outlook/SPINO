@@ -23,6 +23,12 @@ pipeline, so the JSON key names must match these names exactly.
 
 ## Observatory
 
+The Observatory tab starts with a **preset** picker (CRIRES+, IGRINS-2, GIANO-B,
+and `New`). Selecting a built-in preset auto-fills every field below with that
+telescope/instrument's site data; `New` lets you type your own values (editing any
+field switches the picker to `New`). The preset is a GUI convenience only: what is
+saved is the resulting `OBSERVATORY` dict.
+
 `OBSERVATORY` is a dict with:
 
 | Field | Type | Meaning |

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import queue
+import shutil
 import subprocess
 import sys
 import threading
@@ -180,6 +181,34 @@ class RunPanel:
 
         self._output_dir = settings.get("OUTPUT_DIR")
         work_dir = self._output_dir or os.getcwd()
+
+        # If the output folder already holds results, confirm before clearing it:
+        # Yes wipes it and runs a fresh search, No cancels without starting.
+        if (self._output_dir and os.path.isdir(self._output_dir)
+                and os.listdir(self._output_dir)):
+            if not messagebox.askyesno(
+                "Overwrite previous results?",
+                "The output folder already contains results:\n\n"
+                f"{self._output_dir}\n\n"
+                "Delete them and run a new search?\n"
+                "Choose No to keep them and cancel the run.",
+                icon="warning", default="no"):
+                self._log_write("[run cancelled: previous results kept]\n")
+                return
+            if not _safe_to_delete(self._output_dir):
+                messagebox.showerror(
+                    "Refusing to delete",
+                    "The output folder looks unsafe to delete automatically:\n\n"
+                    f"{self._output_dir}\n\n"
+                    "Point OUTPUT_DIR at a dedicated results folder, or empty it "
+                    "manually, then run again.")
+                return
+            try:
+                shutil.rmtree(self._output_dir)
+            except OSError as exc:
+                messagebox.showerror("Could not clear output folder", str(exc))
+                return
+
         os.makedirs(work_dir, exist_ok=True)
         settings_path = os.path.join(work_dir, "settings.json")
         config_io.write_settings(settings_path, settings)
@@ -336,6 +365,27 @@ class RunPanel:
     def _on_reset(self) -> None:
         self._apply_all(self._defaults)
         self._log_write("[reset to defaults]\n")
+
+
+def _safe_to_delete(path: str) -> bool:
+    """Guard against wiping the filesystem root, the home dir, or the cwd tree.
+
+    The output folder is meant to be a dedicated results directory; refuse to
+    ``rmtree`` anything that would take a critical location or the current
+    working directory down with it.
+    """
+    target = os.path.abspath(path)
+    protected = {
+        os.path.abspath(os.sep),
+        os.path.abspath(os.path.expanduser("~")),
+    }
+    if target in protected:
+        return False
+    cwd = os.path.abspath(os.getcwd())
+    # Refuse if the target is the cwd or an ancestor of it.
+    if cwd == target or cwd.startswith(target + os.sep):
+        return False
+    return True
 
 
 def _open_external(path: str) -> None:

@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://github.com/francescoa97outlook/SPINO"><img src="https://img.shields.io/badge/GitHub-SPINO-181717.svg?logo=github" alt="Source on GitHub"></a>
   <a href="https://www.gnu.org/licenses/gpl-3.0"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a>
-  <a href="https://spino-exoplanets.readthedocs.io/en/latest/?badge=latest"><img src="https://readthedocs.org/projects/spino-exoplanets/badge/?version=latest" alt="Documentation Status"></a>
+  <a href="https://spino-exoplanets.readthedocs.io/en/latest/"><img src="https://readthedocs.org/projects/spino-exoplanets/badge/?version=latest" alt="Documentation Status"></a>
   <a href="https://pypi.org/project/spino/"><img src="https://img.shields.io/pypi/v/spino.svg" alt="PyPI version"></a>
 </p>
 

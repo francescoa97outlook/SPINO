@@ -4,4 +4,4 @@ A self-contained Tkinter desktop application for planning exoplanet
 transit / secondary-eclipse phase-coverage observations.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

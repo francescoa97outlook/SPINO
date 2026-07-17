@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", category=NonRotationTransformationWarning)
 # Scheduling looks at *future* observation dates that lie beyond the IERS
 # Earth-orientation data bundled with astropy, so astropy falls back to the
 # 50-yr mean polar motion and warns.  The resulting error is at the arcsec
-# level - negligible for visibility/airmass - so silence just this message
+# level, negligible for visibility/airmass, so silence just this message
 # (matched by text, to avoid muting unrelated AstropyWarnings).
 warnings.filterwarnings(
     "ignore",
@@ -362,7 +362,7 @@ def to_bjd_tdb(t0_value, system_ref, ra_deg, dec_deg):
             key = "<missing>"
             if key not in _warned_unknown_tsys:
                 _warned_unknown_tsys.add(key)
-                print("  [to_bjd_tdb] pl_tsystemref missing - "
+                print("  [to_bjd_tdb] pl_tsystemref missing; "
                       "assuming BJD_TDB (no conversion).")
         return float(t0_value)
 
@@ -390,13 +390,13 @@ def to_bjd_tdb(t0_value, system_ref, ra_deg, dec_deg):
 
     if tok not in _warned_unknown_tsys:
         _warned_unknown_tsys.add(tok)
-        print(f"  [to_bjd_tdb] unknown pl_tsystemref={tok!r} - "
+        print(f"  [to_bjd_tdb] unknown pl_tsystemref={tok!r}; "
               "assuming BJD_TDB (no conversion).")
     return float(t0_value)
 
 
 # ================================================================== #
-#  4. TRANSIT GEOMETRY - Winn (2010)                                  #
+#  4. TRANSIT GEOMETRY: Winn (2010)                                  #
 # ================================================================== #
 def compute_transit_geometry(row):
     """
@@ -667,7 +667,7 @@ def compute_all_nights(target, obs, date_range, constraints,
 
 
 # ================================================================== #
-#  7. EVENT MATCHING - wrapped interval intersection                  #
+#  7. EVENT MATCHING: wrapped interval intersection                  #
 # ================================================================== #
 def _interval_width(intervals):
     """Sum of widths of non-wrapping intervals."""
@@ -703,7 +703,7 @@ def _observable_phase_intervals(phases, obs_mask):
     for k in range(1, len(ph)):
         diff = ph[k] - prev
         if abs(diff) > 0.5:
-            # Phase wrapped - extend to boundary for continuity
+            # Phase wrapped, extend to boundary for continuity
             if prev > 0.5:
                 intervals.append((seg_start, 1.0))
             else:
@@ -828,7 +828,7 @@ def main():
     print(f"  {len(df)} rows ({df['pl_name'].nunique()} planets) from {csv_path}")
 
     # Oldest publication date per planet (across all rows in the raw PS
-    # table) - used to gate PRESELECTION inclusion.
+    # table), used to gate PRESELECTION inclusion.
     if "pl_pubdate" in df.columns:
         oldest_pubdate = df.groupby("pl_name")["pl_pubdate"].min()
     else:
@@ -850,7 +850,7 @@ def main():
     print(f"  After filters: {len(df_best)} planets")
 
     if df_best.empty and not CUSTOM_PLANETS:
-        print("  No planets to schedule - exiting.")
+        print("  No planets to schedule; exiting.")
         return df, df_best, []
 
     show = ["pl_name", "pl_orbper", "pl_rade", "pl_tranmid", "ra", "dec"]

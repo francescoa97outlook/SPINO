@@ -1,5 +1,5 @@
 """
-Phase Scheduler - Per-planet Summary Card
+Phase Scheduler: Per-planet Summary Card
 ==========================================
 Renders a one-page A4 PDF with stellar / planetary / orbital /
 spectroscopy parameters for a single planet.
@@ -523,7 +523,7 @@ def save_planet_summary(row, tsm_row, sh_results, planet_dir,
                  fontfamily="serif", color="#666", va="bottom")
 
     ax.text(0.50, 0.005,
-            "Neptunian Desert - Planet Parameter Summary",
+            "Neptunian Desert: Planet Parameter Summary",
             fontsize=8, color="#bbbbbb", fontfamily="serif",
             ha="center", va="bottom", style="italic")
 

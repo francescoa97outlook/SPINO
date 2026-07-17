@@ -3,7 +3,7 @@ NEA Catalog Fetch
 =================
 Optional online fetch of the NASA Exoplanet Archive PS table via its TAP
 service.  On any failure (network error, timeout, HTTP error) the caller
-should fall back to a local CSV - see ``resolve_catalog_path``.
+should fall back to a local CSV (see ``resolve_catalog_path``).
 
 The column allow-list ``NEA_COLUMNS`` lists exactly the columns the phase
 scheduler pipeline reads (plus a few extra magnitudes useful for GIANO-B
@@ -50,9 +50,9 @@ def fetch_nea_catalog(out_path: str, source: str = "NEA",
     keeping only ``Published Confirmed`` rows.  ``source`` controls the
     WHERE clause:
 
-      "NEA"  - no extra filter (full PS confirmed)
-      "TESS" - adds ``AND disc_facility LIKE '%TESS%'``
-      "BOTH" - same as NEA (per-row source is derived downstream)
+      "NEA":  no extra filter (full PS confirmed)
+      "TESS": adds ``AND disc_facility LIKE '%TESS%'``
+      "BOTH": same as NEA (per-row source is derived downstream)
 
     Writes the response CSV atomically to ``out_path``.
 
@@ -126,9 +126,9 @@ def resolve_catalog_path(
             )
             fetch_nea_catalog(out_path, source=source, timeout=timeout)
             print(f"  ✔  saved → {out_path}")
-        except Exception as e:  # noqa: BLE001 - any failure → fallback
+        except Exception as e:  # noqa: BLE001  (any failure falls back)
             print(
-                f"  ⚠  online fetch failed ({e!s}) - "
+                f"  ⚠  online fetch failed ({e!s}); "
                 f"falling back to local CSV: {out_path}"
             )
 

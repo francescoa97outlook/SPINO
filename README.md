@@ -20,13 +20,13 @@
 exoplanet **transit / secondary-eclipse phase-coverage** observations. It wraps a
 scientific scheduling pipeline (catalog loading, desert filtering, per-planet
 visibility, TSM/ESM ranking, telluric-overlap plots) behind an editable graphical
-interface - every parameter that used to live in a Python config file is now a
+interface. Every parameter that used to live in a Python config file is now a
 form field.
 
 The widget/panel/theming layer is reused from the
 [GUIBRUSHR](https://www.ict.inaf.it/gitlab/guibrushr/guibrushr) project; the
 scheduling pipeline is bundled in `src/spino/pipeline/`. **The whole thing is
-standalone** - all Python modules and data files it needs are vendored into the
+standalone**: all Python modules and data files it needs are vendored into the
 package, so it runs offline out of the box.
 
 ---
@@ -49,7 +49,7 @@ package, so it runs offline out of the box.
 
 ## Features
 
-- **Every config parameter is editable in the GUI** - catalog source, desert /
+- **Every config parameter is editable in the GUI**: catalog source, desert /
   extra filters, observatory (telescope + instrument + site), proposal window,
   observing & event-coverage constraints, hand-entered custom planets, the
   telluric-overlap plot grid, and all output / landscape settings.
@@ -66,7 +66,7 @@ package, so it runs offline out of the box.
 ## Prerequisites
 
 - **Python 3.10+**
-- **Tkinter** - ships with most Python builds (including the conda-forge Python).
+- **Tkinter** ships with most Python builds (including the conda-forge Python).
   There is no `tkinter` package on PyPI, so `pip install tkinter` does not work;
   if `import tkinter` fails, install it with your package manager:
 

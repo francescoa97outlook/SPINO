@@ -1,5 +1,5 @@
 """
-GraphicsConfig - Loads and exposes all values from graphics.yaml.
+GraphicsConfig: Loads and exposes all values from graphics.yaml.
 
 Singleton loaded once at import time.  Every graphics-related module
 (ScaleManager, WindowConfig, etc.) reads from here instead of using

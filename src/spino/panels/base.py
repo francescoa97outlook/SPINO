@@ -1,10 +1,10 @@
 """
-base - shared helpers for the config panels.
+base: shared helpers for the config panels.
 
-* ``ScrollFrame`` - a vertically scrollable container so a tab can hold more
+* ``ScrollFrame``: a vertically scrollable container so a tab can hold more
   rows than fit on screen (extracted from GUIBRUSHR's ad-hoc Canvas+Scrollbar
   pattern into a small reusable class).
-* ``FieldGrid`` - a thin builder that lays out labelled ``My*`` widgets row by
+* ``FieldGrid``: a thin builder that lays out labelled ``My*`` widgets row by
   row inside a ScrollFrame and keeps references for read-back.
 * numeric-cast helpers used by every panel's ``collect()``.
 """

@@ -1,4 +1,4 @@
-"""Constraints tab - date range, observing constraints, event coverage, sampling."""
+"""Constraints tab: date range, observing constraints, event coverage, sampling."""
 from __future__ import annotations
 
 from typing import Any, Dict

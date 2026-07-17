@@ -7,7 +7,7 @@ name = "spino"
 # Version is the single source of truth in src/spino/__init__.py (read below via
 # [tool.setuptools.dynamic]). To release a new version, edit __version__ there.
 dynamic = ["version"]
-description = "SPINO - Software for exoPlanet vIsibility and Nightly Observations: a Tkinter GUI for scheduling exoplanet transit / eclipse phase-coverage observations"
+description = "SPINO (Software for exoPlanet vIsibility and Nightly Observations): a Tkinter GUI for scheduling exoplanet transit / eclipse phase-coverage observations"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "GPL-3.0-or-later" }

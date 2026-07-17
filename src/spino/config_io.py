@@ -1,5 +1,5 @@
 """
-config_io - bridge between the GUI widgets and the pipeline configuration.
+config_io: bridge between the GUI widgets and the pipeline configuration.
 
 The pipeline is driven entirely by the module-level globals in
 ``pipeline/phase_config.py``.  This module:
@@ -137,7 +137,7 @@ HELP: Dict[str, Dict[str, str]] = {
                           "the catalog. For a target already in the catalog, any "
                           "field you set here overrides the catalog value.",
         "pl_name": "Planet name (required); also used for the output subfolder.",
-        "pl_orbper": "Orbital period [days] - sets the phase/ephemeris.",
+        "pl_orbper": "Orbital period [days], sets the phase/ephemeris.",
         "pl_rade": "Planet radius [R_earth].",
         "pl_bmasse": "Planet mass [M_earth]; if omitted a mass-radius relation is used.",
         "pl_eqt": "Equilibrium temperature [K] (drives TSM/ESM).",

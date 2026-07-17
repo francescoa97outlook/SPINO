@@ -1,5 +1,5 @@
 """
-ScaleManager - Singleton that manages named fonts and handles responsive scaling.
+ScaleManager: Singleton that manages named fonts and handles responsive scaling.
 
 When the main window is resized, all named Font objects are updated automatically,
 causing every widget that references them to redraw at the new size.
@@ -55,7 +55,7 @@ class ScaleManager:
         ff = GC.FONT_FAMILY          # general font family
         fa = GC.FONT_FAMILY_ACCENT   # accent font family
 
-        # Named fonts - base sizes come from graphics.yaml
+        # Named fonts: base sizes come from graphics.yaml
         self.font_label        = tkfont.Font(family=ff, size=GC.FONT_SIZE_LABEL,        weight="bold")
         self.font_label_large  = tkfont.Font(family=ff, size=GC.FONT_SIZE_LABEL_LARGE,  weight="bold")
         self.font_label_italic = tkfont.Font(family=ff, size=GC.FONT_SIZE_LABEL_ITALIC, slant="italic")

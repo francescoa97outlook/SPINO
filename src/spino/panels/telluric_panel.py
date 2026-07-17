@@ -1,4 +1,4 @@
-"""Telluric tab - sky-transmission FITS and the telluric-overlap plot grid."""
+"""Telluric tab: sky-transmission FITS and the telluric-overlap plot grid."""
 from __future__ import annotations
 
 from typing import Any, Dict

@@ -3,7 +3,7 @@
 ## Requirements
 
 - **Python >= 3.10**
-- **Tkinter** - part of the CPython standard library (there is no `tkinter`
+- **Tkinter**: part of the CPython standard library (there is no `tkinter`
   package on PyPI, so `pip install tkinter` does not work). It ships with most
   Python builds, including the conda-forge Python used below. If `import tkinter`
   fails:

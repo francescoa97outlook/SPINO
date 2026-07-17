@@ -41,7 +41,7 @@ pipeline, so the JSON key names must match these names exactly.
 |---|---|---|
 | `DATE_RANGE` | dict | `{"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}` proposal window. |
 | `CONSTRAINTS` | dict | `min_target_alt` (deg), `max_sun_alt` (deg; −10 = NEA twilight, −18 = astronomical night), `moon_dist_factor` (0 disables). |
-| `EVENT_CONSTRAINTS` | dict | `transit` / `pre_eclipse` / `post_eclipse`, each `{"min_coverage": 0..1}` - the fraction of the event window that must be observable. |
+| `EVENT_CONSTRAINTS` | dict | `transit` / `pre_eclipse` / `post_eclipse`, each `{"min_coverage": 0..1}`, the fraction of the event window that must be observable. |
 | `TIME_RESOLUTION_MIN` | int (min) | Grid step for the night-by-night sampling. |
 | `PRESELECTION_MIN_YEAR` | int | Only planets whose oldest reference year exceeds this are listed in `preselection.csv`. |
 

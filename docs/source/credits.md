@@ -1,6 +1,6 @@
 # Credits & licensing
 
-## GUI toolkit - GUIBRUSHR
+## GUI toolkit (GUIBRUSHR)
 
 The GUI widget, panel, and theming classes under
 `src/spino/gui_toolkit/` are reused from the
@@ -30,8 +30,8 @@ Please cite the relevant works when using results produced by this tool.
 
 ## Bundled data
 
-- `data/cat/PS_latest_*.csv` - NASA Exoplanet Archive Planetary Systems cache.
-- `data/auxiliary/desert_boundaries.txt`, `data/auxiliary/kde_points_NEA.npz` - desert
+- `data/cat/PS_latest_*.csv`: NASA Exoplanet Archive Planetary Systems cache.
+- `data/auxiliary/desert_boundaries.txt`, `data/auxiliary/kde_points_NEA.npz`: desert
   polygon and KDE background.
-- `data/sky_transmission.fits` - GIANO-B sky-transmission spectrum used by the
+- `data/sky_transmission.fits`: GIANO-B sky-transmission spectrum used by the
   optional telluric-overlap page.

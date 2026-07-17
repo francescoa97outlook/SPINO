@@ -4,7 +4,7 @@
 #  This file controls the visual appearance of the GUI: window dimensions,
 #  font families, font sizes, and scaling behaviour.
 #  Edit values below to customise the interface.  The default configuration
-#  shipped with GUIBRUSHR is the recommended one - modify at your own risk.
+#  shipped with GUIBRUSHR is the recommended one. Modify at your own risk.
 # =============================================================================
 
 
@@ -15,11 +15,11 @@
 # Fixed width / height ratio maintained when resizing
 aspect_ratio: 1.75
 
-# Minimum window size (pixels) - the GUI cannot be made smaller than this
+# Minimum window size (pixels): the GUI cannot be made smaller than this
 min_width: 1400
 min_height: 800
 
-# Maximum window size (pixels) - safety limit for ultra-wide / 4K displays
+# Maximum window size (pixels): safety limit for ultra-wide / 4K displays
 max_width: 2450
 max_height: 1400
 
@@ -57,10 +57,10 @@ input_panel_ratio: 0.85
 # Smaller windows shrink fonts; larger windows grow them.
 reference_height: 800
 
-# Minimum scale factor (floor) - prevents fonts from becoming unreadable
+# Minimum scale factor (floor): prevents fonts from becoming unreadable
 min_scale: 1.0
 
-# Maximum scale factor (cap) - prevents fonts from overflowing the layout
+# Maximum scale factor (cap): prevents fonts from overflowing the layout
 max_scale: 1.8
 
 
@@ -96,16 +96,16 @@ font_family_accent: "Ubuntu"
 #  Each entry defines the point size used when the window is at reference_height.
 #  Actual rendered size = base_size * current_scale.
 
-# Standard label (bold) - most common text in the interface
+# Standard label (bold): most common text in the interface
 font_size_label: 14
 
-# Large label (bold) - section headers like "ATMOSPHERIC PARAMETERS"
+# Large label (bold): section headers like "ATMOSPHERIC PARAMETERS"
 font_size_label_large: 18
 
-# Italic label - informational notes below section headers
+# Italic label: informational notes below section headers
 font_size_label_italic: 14
 
-# Normal-weight label - plain text, manual links
+# Normal-weight label: plain text, manual links
 font_size_label_normal: 14
 
 # Button text (bold)

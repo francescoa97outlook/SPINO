@@ -1,4 +1,4 @@
-"""Catalog tab - source, online-fetch toggle, timeout, cache directory."""
+"""Catalog tab: source, online-fetch toggle, timeout, cache directory."""
 from __future__ import annotations
 
 from typing import Any, Dict

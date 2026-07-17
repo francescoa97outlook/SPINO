@@ -1,5 +1,5 @@
 """
-HelpButton - A reusable help button widget that displays information in a popup.
+HelpButton: A reusable help button widget that displays information in a popup.
 
 This module provides a help button with a blue electric background and a yellow-gold
 question mark that opens a popup with detailed descriptions when clicked.

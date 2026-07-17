@@ -1,4 +1,4 @@
-"""Run tab — save/load/reset, launch the pipeline subprocess, stream its log,
+"""Run tab - save/load/reset, launch the pipeline subprocess, stream its log,
 and list the generated output files (double-click opens them externally).
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ from spino.gui_toolkit.widget.MyButton import MyButton
 from spino.gui_toolkit.widget.MyTable import MyTable
 from spino.gui_toolkit.widget.HelpButton import HelpButton
 
-# src/ dir (parent of the spino package) — put on the child's
+# src/ dir (parent of the spino package) - put on the child's
 # PYTHONPATH so `python -m spino.runner` resolves when running
 # from a source checkout (not just an installed package).
 _PKG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

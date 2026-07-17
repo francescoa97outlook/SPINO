@@ -96,7 +96,7 @@ def compute_planet_telluric_drv(event, observatory, target, vsys_kms, kp_kms,
     -------
     dict | None
         ``t_min_from_mid`` (minutes from T_mid), ``bjd_tdb`` (JD_TDB, no
-        light-travel correction — same convention as the existing plot),
+        light-travel correction - same convention as the existing plot),
         ``phase``, ``vbary`` (km/s), ``v_planet`` (km/s), ``drv`` (km/s,
         ≡ v_planet), plus scalar stats ``mean``, ``min``, ``max``,
         ``span`` and the reference values ``t_mid_bjd_tdb`` and ``t14_h``.
@@ -175,7 +175,7 @@ def compute_barycentric_velocity(times_utc, ra_deg, dec_deg,
 
     Uses `SkyCoord.radial_velocity_correction('barycentric', ...)`, which
     returns the velocity at which the observer is moving toward the target in
-    the barycentric frame — the modern, canonical equivalent of the IDL
+    the barycentric frame - the modern, canonical equivalent of the IDL
     `helcorr` and the user's hand-rolled `helcorr_velocity`.
     """
     location = EarthLocation.from_geodetic(
@@ -235,7 +235,7 @@ def plot_telluric_position(event, obs, target, vsys_kms, sky_fits_path,
 
     When ``kp_kms`` is finite, an additional vertical band marks the planet's
     expected RV trace ``Kp · sin(2π·φ)`` evaluated at the synthetic-exposure
-    phases of the event — i.e. the range of stellar-rest-frame velocities the
+    phases of the event - i.e. the range of stellar-rest-frame velocities the
     planet's signal will sweep through during the observation.
 
     Skips silently (with a one-shot warning) when:
@@ -278,7 +278,7 @@ def plot_telluric_position(event, obs, target, vsys_kms, sky_fits_path,
 
     spline_cc = InterpolatedUnivariateSpline(rv, ccor_earth, k=3, ext=3)
     # Star in Earth frame: telluric CC shape shifted so its peak lands at
-    # vtot = Vsys − <Vbary> — i.e. where stellar lines fall when observed
+    # vtot = Vsys − <Vbary> - i.e. where stellar lines fall when observed
     # from Earth.  All quantities on this plot stay in the Earth frame.
     ccor_star = spline_cc(rv - vtot)
 
@@ -354,8 +354,8 @@ def plot_telluric_position(event, obs, target, vsys_kms, sky_fits_path,
     ax.legend(loc="upper right", fontsize=10)
 
     ax.set_title(
-        f"Telluric position — {name} — "
-        f"{event_type.replace('_', ' ').title()} — {date_str}",
+        f"Telluric position - {name} - "
+        f"{event_type.replace('_', ' ').title()} - {date_str}",
         fontsize=13, pad=10,
     )
 

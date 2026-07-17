@@ -1,4 +1,4 @@
-"""Observatory tab — name / telescope / instrument / lat / lon / alt / timezone."""
+"""Observatory tab - name / telescope / instrument / lat / lon / alt / timezone."""
 from __future__ import annotations
 
 from typing import Any, Dict

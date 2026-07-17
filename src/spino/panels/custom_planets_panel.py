@@ -1,4 +1,4 @@
-"""Custom Planets tab — a validated JSON editor for the CUSTOM_PLANETS list.
+"""Custom Planets tab - a validated JSON editor for the CUSTOM_PLANETS list.
 
 CUSTOM_PLANETS entries carry up to ~16 heterogeneous fields, so a free-form
 JSON editor (with validation + an example inserter) is clearer and safer than
@@ -45,7 +45,7 @@ class CustomPlanetsPanel:
             pass
         HelpButton(frame, 0, 1, "Custom Planets", config_io.HELP["Custom Planets"])
         MyLabel(frame, 1, 0, color=bg,
-                label_text="CUSTOM_PLANETS — JSON list of planet dicts "
+                label_text="CUSTOM_PLANETS - JSON list of planet dicts "
                            f"(fields: pl_name, {', '.join(config_io.CUSTOM_PLANET_FIELDS)}):")
 
         text_frame = tk.Frame(frame, bg=bg)
@@ -99,7 +99,7 @@ class CustomPlanetsPanel:
     def _validate(self):
         try:
             n = len(self._parse())
-            self._status.set_text(f"OK — {n} planet(s).")
+            self._status.set_text(f"OK - {n} planet(s).")
         except ValueError as exc:
             self._status.set_text(f"Invalid JSON: {exc}")
 

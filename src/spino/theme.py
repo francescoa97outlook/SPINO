@@ -1,5 +1,5 @@
 """
-theme — colour palette and tab list for the SPINO GUI.
+theme - colour palette and tab list for the SPINO GUI.
 
 Replaces GUIBRUSHR's domain-coupled ``ConstantVariables``: none of the copied
 widgets need that module, they only need a colour per panel and (for the
@@ -28,7 +28,7 @@ LOG_OK = "#A3BE8C"          # success (✔, summary →, Calendar:, PRESELECTION
 LOG_TOTAL = "#A3BE8C"       # final TOTAL line (bold)
 LOG_CMD = "#616E88"         # command echo / bracketed GUI status ($ …, [finished])
 
-# Notebook tabs — (label, panel background colour).
+# Notebook tabs - (label, panel background colour).
 TABS = [
     ("Catalog", COLOR_PANEL),
     ("Filters", COLOR_PANEL),

@@ -127,28 +127,28 @@ def plot_event(event, obs, output_path=None, pdf=None):
     # Altitude threshold line
     ax.axhline(min_alt, color='green', ls=':', lw=1, alpha=0.5, zorder=1)
 
-    # 1) Full trajectory — yellow
+    # 1) Full trajectory - yellow
     ax.plot(times_dt_utc, target_alt,
             color='#FFD700', lw=2.5, zorder=3, label='Target trajectory')
 
-    # 2) Above threshold — green
+    # 2) Above threshold - green
     above = target_alt.copy()
     above[target_alt < min_alt] = np.nan
     ax.plot(times_dt_utc, above,
             color='#00FF00', lw=3.5, zorder=4, label=f'Alt > {min_alt:.0f}°')
 
-    # 3) In-event — blue
+    # 3) In-event - blue
     event_alt = target_alt.copy()
     event_alt[~in_event] = np.nan
     ax.plot(times_dt_utc, event_alt,
             color=_EVENT_COLORS.get(event_type, '#4169E1'),
             lw=4.5, zorder=5, label=event_type.replace('_', ' ').title())
 
-    # 4) Moon — white dashed
+    # 4) Moon - white dashed
     ax.plot(times_dt_utc, moon_alt,
             '--', color='white', lw=1.5, alpha=0.7, zorder=2, label='Moon')
 
-    # 5) Sun — gray dashed
+    # 5) Sun - gray dashed
     ax.plot(times_dt_utc, sun_alt,
             '--', color='gray', lw=1.5, alpha=0.5, zorder=2, label='Sun')
 
@@ -198,8 +198,8 @@ def plot_event(event, obs, output_path=None, pdf=None):
     # Title
     date_str = night["date_str"]
     ax.set_title(
-        f"{target['name']}  —  {event_type.replace('_', ' ').title()}"
-        f"  @  {obs['name']}  —  {date_str}",
+        f"{target['name']}  -  {event_type.replace('_', ' ').title()}"
+        f"  @  {obs['name']}  -  {date_str}",
         color='white', fontsize=14, pad=30)
 
     # Footer info
@@ -288,7 +288,7 @@ def plot_calendar(events, event_type, planet_name, event_windows,
     ax.set_xlim(0, 1)
     ax.set_xlabel("Orbital Phase", fontsize=12)
     ax.set_title(
-        f"{planet_name}  —  {event_type.replace('_', ' ').title()} Calendar",
+        f"{planet_name}  -  {event_type.replace('_', ' ').title()} Calendar",
         fontsize=14)
 
     # Colorbar (Moon illumination)
@@ -405,7 +405,7 @@ def plot_PR_landscape(df_all, df_filtered, boundary_file, kde_file,
     ax2.set_ylabel("Planet Radius [R$_J$]", fontsize=13)
 
     ax.legend(loc='upper left', fontsize=10)
-    ax.set_title("Period — Radius Landscape", fontsize=15)
+    ax.set_title("Period - Radius Landscape", fontsize=15)
 
     fig.tight_layout()
     out_path = os.path.join(output_dir, "PR_landscape.pdf")

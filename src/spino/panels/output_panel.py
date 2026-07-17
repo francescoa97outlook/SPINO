@@ -1,4 +1,4 @@
-"""Output & Plot tab — output dir, aux/boundary/KDE paths, landscape limits."""
+"""Output & Plot tab - output dir, aux/boundary/KDE paths, landscape limits."""
 from __future__ import annotations
 
 from typing import Any, Dict

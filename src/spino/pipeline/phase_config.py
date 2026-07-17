@@ -1,5 +1,5 @@
 """
-Phase Scheduler — User Configuration
+Phase Scheduler - User Configuration
 =====================================
 All user-facing settings for the phase scheduler tool.
 Edit this file only; phase_scheduler.py imports it.
@@ -17,26 +17,26 @@ _DATA = os.path.join(_PKG, "data")                     # bundled catalogs / aux 
 # PS table is fetched and cached.  Each value caches to its own CSV
 # inside CATALOG_DIR as PS_latest_{source}.csv.
 #
-#   "NEA"  — all confirmed planets (full PS table; default)
-#   "TESS" — confirmed planets with disc_facility LIKE '%TESS%'
-#   "BOTH" — same query as NEA, but the per-row catalog_source column
+#   "NEA"  - all confirmed planets (full PS table; default)
+#   "TESS" - confirmed planets with disc_facility LIKE '%TESS%'
+#   "BOTH" - same query as NEA, but the per-row catalog_source column
 #            is derived from disc_facility (TESS or NEA per row).
 #
-#   FETCH_NEA_ONLINE  — try the TAP service first; on any failure the
+#   FETCH_NEA_ONLINE  - try the TAP service first; on any failure the
 #                       pipeline falls back to the local CSV.
-#   NEA_FETCH_TIMEOUT — seconds to wait for the TAP response.
-#   CATALOG_DIR       — directory holding PS_latest_{source}.csv files.
+#   NEA_FETCH_TIMEOUT - seconds to wait for the TAP response.
+#   CATALOG_DIR       - directory holding PS_latest_{source}.csv files.
 CATALOG_SOURCE    = "NEA"
 FETCH_NEA_ONLINE  = False
 NEA_FETCH_TIMEOUT = 30
 CATALOG_DIR       = os.path.join(_DATA, "cat")
 
-# "desert"    — keep only planets inside the desert polygon
-# "nondesert" — keep only planets outside the desert polygon
-# "all"       — no desert filter (keep all planets)
+# "desert"    - keep only planets inside the desert polygon
+# "nondesert" - keep only planets outside the desert polygon
+# "all"       - no desert filter (keep all planets)
 DESERT_FILTER = "all"
 
-# Single-target run on HD 63433 b — keep the catalog pipeline silent by
+# Single-target run on HD 63433 b - keep the catalog pipeline silent by
 # forcing an impossible filter so df_best is empty; HD 63433 b is then
 # injected via CUSTOM_PLANETS below.  Restore the original block below to
 # go back to the catalogue-wide run.
@@ -62,8 +62,8 @@ EXTRA_FILTERS = [
 # ============================================================== #
 #  PRESELECTION                                                   #
 # ============================================================== #
-# A symlink farm under OUTPUT_DIR/PRESELECTION is populated with the
-# subset of qualifying planets:
+# A single OUTPUT_DIR/preselection.csv lists the subset of qualifying planets
+# (one row each, with key properties):
 #   - oldest reference's publication year > PRESELECTION_MIN_YEAR, AND
 #   - at least one of TSM / ESM above its Kempton threshold.
 PRESELECTION_MIN_YEAR = 2018

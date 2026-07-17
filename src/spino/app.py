@@ -1,5 +1,5 @@
 """
-app — the SPINO main window.
+app - the SPINO main window.
 
 Builds a tabbed window (one tab per configuration group + a Run tab) from the
 reused GUIBRUSHR widget toolkit, and orchestrates the pipeline via the Run tab.

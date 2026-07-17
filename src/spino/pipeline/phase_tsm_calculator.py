@@ -6,14 +6,14 @@ from scipy.constants import h, c, k
 class TSM_ESM_Calculator:
     """
     Transmission / Emission Spectroscopy Metrics (Kempton et al. 2018)
-    PASP, 130, 114401 — doi:10.1088/1538-3873/aadf6f
+    PASP, 130, 114401 - doi:10.1088/1538-3873/aadf6f
 
     TSM = ScaleFactor × (Rp³ Teq) / (Mp Rs²) × 10^(−mJ/5)       [Eq. 1]
     ESM = 4.29×10⁶ × B₇.₅(Tday)/B₇.₅(T★) × (Rp/R★)² × 10^(−mK/5) [Eq. 4]
     Tday = 1.10 × Teq
     """
 
-    # Scale factors — Table 1
+    # Scale factors - Table 1
     SCALE = {
         'terrestrial':       0.190,   # Rp < 1.5
         'small_sub_neptune': 1.26,    # 1.5 ≤ Rp < 2.75
@@ -21,7 +21,7 @@ class TSM_ESM_Calculator:
         'sub_jovian':        1.15,    # 4.0 ≤ Rp < 10.0
     }
 
-    # Recommended TSM thresholds — Section 5 / Figure 5
+    # Recommended TSM thresholds - Section 5 / Figure 5
     TSM_THR = {
         'terrestrial': 10,
         'small_sub_neptune': 90,
@@ -47,7 +47,7 @@ class TSM_ESM_Calculator:
             return 1.436  * rp ** 1.70
 
     # -------------------------------------------------------------- #
-    #  Teq  (Kempton Eq. 3)  — zero albedo, full redistribution      #
+    #  Teq  (Kempton Eq. 3)  - zero albedo, full redistribution      #
     # -------------------------------------------------------------- #
     @staticmethod
     def _teq(t_star, r_star_rsun, a_au):
@@ -80,27 +80,27 @@ class TSM_ESM_Calculator:
         """
         Parameters
         ----------
-        p : dict — single self-contained planet dictionary.
+        p : dict - single self-contained planet dictionary.
 
         Required keys
         -------------
-        name          : str    — planet identifier
-        Rp_Rearth  OR  Rp_Rjup   — planet radius
-        Rs_Rsun       : float  — stellar radius  [R☉]
-        Teff_star     : float  — stellar Teff     [K]
-        mag_J         : float  — host star J mag
-        mag_K         : float  — host star K mag
+        name          : str    - planet identifier
+        Rp_Rearth  OR  Rp_Rjup   - planet radius
+        Rs_Rsun       : float  - stellar radius  [R☉]
+        Teff_star     : float  - stellar Teff     [K]
+        mag_J         : float  - host star J mag
+        mag_K         : float  - host star K mag
 
         Plus ONE of:
-            Teq         : float  — equilibrium temperature [K]
-            a_AU        : float  — semi-major axis [AU]  (Teq computed)
+            Teq         : float  - equilibrium temperature [K]
+            a_AU        : float  - semi-major axis [AU]  (Teq computed)
 
         Optional
         --------
-        Mp_Mearth  OR  Mp_Mjup  — planet mass
+        Mp_Mearth  OR  Mp_Mjup  - planet mass
             (if absent → Chen & Kipping 2017 estimate)
-        P_days        : float  — orbital period [d]
-        a_AU          : float  — semi-major axis [AU]
+        P_days        : float  - orbital period [d]
+        a_AU          : float  - semi-major axis [AU]
 
         Returns
         -------
@@ -216,7 +216,7 @@ def analyze(planets, output_csv="tsm_esm_results.csv"):
 
 
 # ================================================================== #
-#  MAIN — inserisci qui i tuoi target                                 #
+#  MAIN - inserisci qui i tuoi target                                 #
 # ================================================================== #
 if __name__ == "__main__":
 
@@ -227,20 +227,20 @@ if __name__ == "__main__":
         #  I parametri stellari si ripetono per ogni pianeta.
         #
         #  CHIAVI OBBLIGATORIE:
-        #    name        — nome del pianeta
-        #    Rp_Rearth   — raggio planetario [R⊕]  (oppure Rp_Rjup)
-        #    Rs_Rsun     — raggio stellare   [R☉]
-        #    Teff_star   — temperatura stellare [K]
-        #    mag_J       — magnitudine J della stella
-        #    mag_K       — magnitudine K della stella
-        #    Teq         — temperatura di equilibrio [K]
+        #    name        - nome del pianeta
+        #    Rp_Rearth   - raggio planetario [R⊕]  (oppure Rp_Rjup)
+        #    Rs_Rsun     - raggio stellare   [R☉]
+        #    Teff_star   - temperatura stellare [K]
+        #    mag_J       - magnitudine J della stella
+        #    mag_K       - magnitudine K della stella
+        #    Teq         - temperatura di equilibrio [K]
         #                   (oppure a_AU → Teq calcolata da Eq. 3)
         #
         #  CHIAVI OPZIONALI:
-        #    Mp_Mearth   — massa planetaria [M⊕]  (oppure Mp_Mjup)
+        #    Mp_Mearth   - massa planetaria [M⊕]  (oppure Mp_Mjup)
         #                   se assente → relazione M-R Chen&Kipping 2017
-        #    a_AU        — semiasse maggiore [AU]
-        #    P_days      — periodo orbitale  [giorni]
+        #    a_AU        - semiasse maggiore [AU]
+        #    P_days      - periodo orbitale  [giorni]
         # ──────────────────────────────────────────────────────────
 
         {

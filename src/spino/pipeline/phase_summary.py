@@ -1,5 +1,5 @@
 """
-Phase Scheduler — Per-planet Summary Card
+Phase Scheduler - Per-planet Summary Card
 ==========================================
 Renders a one-page A4 PDF with stellar / planetary / orbital /
 spectroscopy parameters for a single planet.
@@ -340,8 +340,8 @@ def save_planet_summary(row, tsm_row, sh_results, planet_dir,
     stellar = [
         ("Host star",  star_name,                            "",      ""),
         ("Teff",       _fmt(row.get("st_teff"),  ".0f"),     "K",     src_of("st_teff")),
-        ("R★",         _fmt(row.get("st_rad"),   ".3f"),     "$R_S$", src_of("st_rad")),
-        ("M★",         _fmt(row.get("st_mass"),  ".3f"),     "$M_S$", src_of("st_mass")),
+        (r"$R_\star$", _fmt(row.get("st_rad"),   ".3f"),     "$R_S$", src_of("st_rad")),
+        (r"$M_\star$", _fmt(row.get("st_mass"),  ".3f"),     "$M_S$", src_of("st_mass")),
         ("[Fe/H]",     _fmt(row.get("st_met"),   "+.2f"),    "",      src_of("st_met")),
         ("J mag",      _fmt(mags.get("J"),       ".2f"),     "",      src_of("sy_jmag")),
         ("H mag",      _fmt(mags.get("H"),       ".2f"),     "",      src_of("sy_hmag")),
@@ -523,7 +523,7 @@ def save_planet_summary(row, tsm_row, sh_results, planet_dir,
                  fontfamily="serif", color="#666", va="bottom")
 
     ax.text(0.50, 0.005,
-            "Neptunian Desert — Planet Parameter Summary",
+            "Neptunian Desert - Planet Parameter Summary",
             fontsize=8, color="#bbbbbb", fontfamily="serif",
             ha="center", va="bottom", style="italic")
 

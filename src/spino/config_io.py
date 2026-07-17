@@ -1,5 +1,5 @@
 """
-config_io — bridge between the GUI widgets and the pipeline configuration.
+config_io - bridge between the GUI widgets and the pipeline configuration.
 
 The pipeline is driven entirely by the module-level globals in
 ``pipeline/phase_config.py``.  This module:
@@ -128,7 +128,7 @@ HELP: Dict[str, Dict[str, str]] = {
         "post_eclipse": "Fraction of the post-eclipse window that must be observable.",
         "TIME_RESOLUTION_MIN": "Grid step [minutes] for the night-by-night sampling.",
         "PRESELECTION_MIN_YEAR": "Only planets whose oldest reference year exceeds "
-                                 "this are added to the PRESELECTION symlink farm.",
+                                 "this are listed in preselection.csv.",
     },
     "Custom Planets": {
         "CUSTOM_PLANETS": "A JSON list of hand-entered targets injected into the "
@@ -137,7 +137,7 @@ HELP: Dict[str, Dict[str, str]] = {
                           "the catalog. For a target already in the catalog, any "
                           "field you set here overrides the catalog value.",
         "pl_name": "Planet name (required); also used for the output subfolder.",
-        "pl_orbper": "Orbital period [days] — sets the phase/ephemeris.",
+        "pl_orbper": "Orbital period [days] - sets the phase/ephemeris.",
         "pl_rade": "Planet radius [R_earth].",
         "pl_bmasse": "Planet mass [M_earth]; if omitted a mass-radius relation is used.",
         "pl_eqt": "Equilibrium temperature [K] (drives TSM/ESM).",

@@ -1,4 +1,4 @@
-"""Filters tab — desert filter + an editable EXTRA_FILTERS table."""
+"""Filters tab - desert filter + an editable EXTRA_FILTERS table."""
 from __future__ import annotations
 
 import tkinter as tk

@@ -1,5 +1,5 @@
 """
-runner — headless subprocess entry point that executes the scheduling pipeline.
+runner - headless subprocess entry point that executes the scheduling pipeline.
 
 Usage::
 

@@ -1,0 +1,29 @@
+# Sphinx documentation requirements for SPINO.
+# Install with: pip install -r docs/requirements.txt
+
+# Core Sphinx
+sphinx>=7.0
+furo>=2024.0.0
+
+# Extensions
+sphinx-copybutton>=0.5.2
+sphinx-autobuild>=2024.0.0
+myst-parser>=2.0
+sphinx-autodoc-typehints>=1.25
+
+# Additional utilities
+docutils>=0.19
+Jinja2>=3.1.0
+
+# Needed so autodoc can import the SPINO modules
+numpy
+scipy
+matplotlib
+pandas
+astropy
+astroquery
+pytz
+seaborn
+requests
+PyYAML
+Pygments>=2.15.0

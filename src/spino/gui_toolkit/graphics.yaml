@@ -1,0 +1,158 @@
+# =============================================================================
+#  GUIBRUSHR Graphics Configuration
+# =============================================================================
+#  This file controls the visual appearance of the GUI: window dimensions,
+#  font families, font sizes, and scaling behaviour.
+#  Edit values below to customise the interface.  The default configuration
+#  shipped with GUIBRUSHR is the recommended one — modify at your own risk.
+# =============================================================================
+
+
+# ---------------------------------------------------------------------------
+#  Window dimensions
+# ---------------------------------------------------------------------------
+
+# Fixed width / height ratio maintained when resizing
+aspect_ratio: 1.75
+
+# Minimum window size (pixels) — the GUI cannot be made smaller than this
+min_width: 1400
+min_height: 800
+
+# Maximum window size (pixels) — safety limit for ultra-wide / 4K displays
+max_width: 2450
+max_height: 1400
+
+# Fallback size used when automatic screen detection fails
+default_width: 1750
+default_height: 1000
+
+# Fraction of the screen the window occupies at startup (0.0–1.0)
+screen_scale_factor: 0.85
+
+# Additional multiplier applied on macOS (Retina displays, dock, menu bar)
+macos_scale_factor: 0.95
+
+
+# ---------------------------------------------------------------------------
+#  Panel layout
+# ---------------------------------------------------------------------------
+
+# Horizontal margin subtracted from window width to size panels (pixels)
+panel_margin: 50
+
+# Vertical spacing between input and output panels (pixels)
+panel_vertical_spacing: 10
+
+# Fraction of vertical space allocated to the input panel (0.0–1.0)
+input_panel_ratio: 0.85
+
+
+# ---------------------------------------------------------------------------
+#  Font scaling
+# ---------------------------------------------------------------------------
+
+# Reference height (pixels) at which scale = 1.0.
+# Fonts stay at their base size when the window height equals this value.
+# Smaller windows shrink fonts; larger windows grow them.
+reference_height: 800
+
+# Minimum scale factor (floor) — prevents fonts from becoming unreadable
+min_scale: 1.0
+
+# Maximum scale factor (cap) — prevents fonts from overflowing the layout
+max_scale: 1.8
+
+
+# ---------------------------------------------------------------------------
+#  Font family
+# ---------------------------------------------------------------------------
+#  Uncomment ONE line per role below to change the font family.
+#  The active (uncommented) value is used.  You can also type any font
+#  name installed on your system.
+
+# General-purpose font used for labels, entries, tables
+# font_family: "Sans"
+# font_family: "Helvetica"
+# font_family: "DejaVu Sans"
+# font_family: "Liberation Sans"
+# font_family: "Noto Sans"
+font_family: "Ubuntu"
+# font_family: "Roboto"
+
+# Font used for buttons, links, help popups
+# font_family_accent: "Arial"
+# font_family_accent: "Helvetica"
+# font_family_accent: "DejaVu Sans"
+# font_family_accent: "Liberation Sans"
+# font_family_accent: "Noto Sans"
+font_family_accent: "Ubuntu"
+# font_family_accent: "Roboto"
+
+
+# ---------------------------------------------------------------------------
+#  Font sizes  (base values at scale = 1.0)
+# ---------------------------------------------------------------------------
+#  Each entry defines the point size used when the window is at reference_height.
+#  Actual rendered size = base_size * current_scale.
+
+# Standard label (bold) — most common text in the interface
+font_size_label: 14
+
+# Large label (bold) — section headers like "ATMOSPHERIC PARAMETERS"
+font_size_label_large: 18
+
+# Italic label — informational notes below section headers
+font_size_label_italic: 14
+
+# Normal-weight label — plain text, manual links
+font_size_label_normal: 14
+
+# Button text (bold)
+font_size_button: 15
+
+# Entry fields and dropdown menus
+font_size_entry: 14
+
+# Clickable links (underlined)
+font_size_link: 14
+
+# Help button icon (the "?" character)
+font_size_help_icon: 18
+
+# Help popup window title
+font_size_help_title: 22
+
+# Help popup parameter names (bold)
+font_size_help_param: 16
+
+# Help popup description text
+font_size_help_text: 14
+
+# Notebook tab headers (bold)
+font_size_tab: 14
+
+# Treeview table body text
+font_size_tree: 14
+
+# Treeview row height (pixels, not a font size)
+tree_row_height: 34
+
+
+# ---------------------------------------------------------------------------
+#  Matplotlib plot font sizes
+# ---------------------------------------------------------------------------
+#  These control font sizes in the generated matplotlib figures
+#  (PT profile, low-resolution spectrum plots, etc.)
+
+# Axis labels (xlabel, ylabel)
+plot_font_size_label: 13
+
+# Plot titles
+plot_font_size_title: 14
+
+# Tick labels
+plot_font_size_tick: 11
+
+# Legend text
+plot_font_size_legend: 11

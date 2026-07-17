@@ -1,0 +1,13 @@
+# Runtime dependencies for SPINO (Software for exoPlanet vIsibility and Nightly Observations).
+# tkinter is part of the Python standard library (on Debian/Ubuntu install the
+# system package `python3-tk` if it is missing).
+numpy
+pandas
+scipy
+matplotlib
+astropy
+astroquery
+pytz
+seaborn
+requests
+PyYAML

@@ -1,0 +1,26 @@
+# Read the Docs configuration. This builds and hosts the SPINO documentation.
+# Setup (one time): sign in at https://readthedocs.org, click "Import a Project",
+# select the SPINO GitHub repo, and RTD will use this file automatically.
+# The docs then publish to https://spino.readthedocs.io on every push.
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.11"
+  apt_packages:
+    # The GUI modules import tkinter at module level; SPINO does not mock it.
+    - python3-tk
+  jobs:
+    pre_build:
+      # Generate the API RST files (and fix maxdepth) via the same script used
+      # locally, so the API reference is always in sync before Sphinx runs.
+      - chmod +x build_docs.sh
+      - ./build_docs.sh
+
+sphinx:
+  configuration: docs/source/conf.py
+
+python:
+  install:
+    - requirements: docs/requirements.txt

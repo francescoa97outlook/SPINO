@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spino"
+# Version is the single source of truth in src/spino/__init__.py (read below via
+# [tool.setuptools.dynamic]). To release a new version, edit __version__ there.
+dynamic = ["version"]
+description = "SPINO — Software for exoPlanet vIsibility and Nightly Observations: a Tkinter GUI for scheduling exoplanet transit / eclipse phase-coverage observations"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Francesco Amadori", email = "francesco.a97.ing@outlook.it" }]
+keywords = ["astronomy", "exoplanets", "transit", "scheduling", "visibility", "tkinter"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "matplotlib",
+    "astropy",
+    "astroquery",
+    "pytz",
+    "seaborn",
+    "requests",
+    "PyYAML",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7.0",
+    "furo",
+    "myst-parser",
+    "sphinx-autodoc-typehints",
+    "sphinx-copybutton",
+]
+dev = [
+    "build",
+    "twine",
+    "pytest",
+]
+
+[project.urls]
+Homepage = "https://github.com/francescoa97outlook/SPINO"
+Repository = "https://github.com/francescoa97outlook/SPINO"
+Issues = "https://github.com/francescoa97outlook/SPINO/issues"
+Documentation = "https://spino.readthedocs.io"
+
+[project.scripts]
+spino = "spino.app:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "spino.__version__" }
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+spino = [
+    "gui_toolkit/graphics.yaml",
+    "data/auxiliary/*",
+    "data/cat/*.csv",
+    "data/*.fits",
+    "data/assets/*.png",
+]

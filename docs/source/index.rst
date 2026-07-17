@@ -16,8 +16,8 @@ Welcome to SPINO's Documentation!
    :target: https://www.gnu.org/licenses/gpl-3.0
    :alt: License: GPL v3
 
-.. image:: https://readthedocs.org/projects/spino/badge/?version=latest
-   :target: https://spino.readthedocs.io/en/latest/?badge=latest
+.. image:: https://readthedocs.org/projects/spino-exoplanets/badge/?version=latest
+   :target: https://spino-exoplanets.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
 
 .. image:: https://img.shields.io/pypi/v/spino.svg

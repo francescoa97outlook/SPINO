@@ -55,7 +55,7 @@ dev = [
 Homepage = "https://github.com/francescoa97outlook/SPINO"
 Repository = "https://github.com/francescoa97outlook/SPINO"
 Issues = "https://github.com/francescoa97outlook/SPINO/issues"
-Documentation = "https://spino.readthedocs.io"
+Documentation = "https://spino-exoplanets.readthedocs.io"
 
 [project.scripts]
 spino = "spino.app:main"

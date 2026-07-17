@@ -1,7 +1,7 @@
 # Read the Docs configuration. This builds and hosts the SPINO documentation.
 # Setup (one time): sign in at https://readthedocs.org, click "Import a Project",
 # select the SPINO GitHub repo, and RTD will use this file automatically.
-# The docs then publish to https://spino.readthedocs.io on every push.
+# The docs then publish to https://spino-exoplanets.readthedocs.io on every push.
 version: 2
 
 build:

@@ -2,8 +2,12 @@
 
 ## Requirements
 
-- **Python ≥ 3.9**
-- **Tkinter** — part of the CPython standard library. If `import tkinter` fails:
+- **Python >= 3.10**
+- **Tkinter** - part of the CPython standard library (there is no `tkinter`
+  package on PyPI, so `pip install tkinter` does not work). It ships with most
+  Python builds, including the conda-forge Python used below. If `import tkinter`
+  fails:
+  - conda: `conda install tk`
   - Debian / Ubuntu: `sudo apt install python3-tk`
   - Fedora: `sudo dnf install python3-tkinter`
   - macOS (python.org / Homebrew builds include Tk); with pyenv you may need
@@ -11,7 +15,27 @@
 - Scientific stack (installed automatically): numpy, pandas, scipy, matplotlib,
   astropy, astroquery, pytz, seaborn, requests, PyYAML.
 
-## Editable install (recommended for development)
+## Install with conda (recommended)
+
+Create a dedicated environment with Python 3.10 (the conda-forge Python already
+bundles Tkinter, so nothing extra is needed):
+
+```bash
+conda create -n spino_env python=3.10
+conda activate spino_env
+pip install spino
+```
+
+From a source checkout, use an editable install instead of `pip install spino`:
+
+```bash
+conda create -n spino_env python=3.10
+conda activate spino_env
+cd SPINO
+pip install -e .
+```
+
+## Editable install with venv (for development)
 
 ```bash
 cd SPINO

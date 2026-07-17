@@ -20,13 +20,13 @@
 exoplanet **transit / secondary-eclipse phase-coverage** observations. It wraps a
 scientific scheduling pipeline (catalog loading, desert filtering, per-planet
 visibility, TSM/ESM ranking, telluric-overlap plots) behind an editable graphical
-interface — every parameter that used to live in a Python config file is now a
+interface - every parameter that used to live in a Python config file is now a
 form field.
 
 The widget/panel/theming layer is reused from the
 [GUIBRUSHR](https://www.ict.inaf.it/gitlab/guibrushr/guibrushr) project; the
 scheduling pipeline is bundled in `src/spino/pipeline/`. **The whole thing is
-standalone** — all Python modules and data files it needs are vendored into the
+standalone** - all Python modules and data files it needs are vendored into the
 package, so it runs offline out of the box.
 
 ---
@@ -49,7 +49,7 @@ package, so it runs offline out of the box.
 
 ## Features
 
-- **Every config parameter is editable in the GUI** — catalog source, desert /
+- **Every config parameter is editable in the GUI** - catalog source, desert /
   extra filters, observatory (telescope + instrument + site), proposal window,
   observing & event-coverage constraints, hand-entered custom planets, the
   telluric-overlap plot grid, and all output / landscape settings.
@@ -65,30 +65,43 @@ package, so it runs offline out of the box.
 
 ## Prerequisites
 
-- **Python 3.9+**
-- **Tkinter** — ships with CPython, but on Debian/Ubuntu you may need the system
-  package:
+- **Python 3.10+**
+- **Tkinter** - ships with most Python builds (including the conda-forge Python).
+  There is no `tkinter` package on PyPI, so `pip install tkinter` does not work;
+  if `import tkinter` fails, install it with your package manager:
 
   ```bash
-  sudo apt install python3-tk
+  conda install tk                 # conda
+  sudo apt install python3-tk      # Debian / Ubuntu
+  sudo dnf install python3-tkinter # Fedora
   ```
 
 ---
 
 ## Installation
 
-### Option A: Install from PyPI
+### Option A: Install with conda (recommended)
+
+The conda-forge Python 3.10 already bundles Tkinter, so nothing extra is needed:
+
+```bash
+conda create -n spino_env python=3.10
+conda activate spino_env
+pip install spino
+```
+
+### Option B: Install from PyPI into an existing environment
 
 ```bash
 pip install spino
 ```
 
-### Option B: Clone and install in editable mode (for development)
+### Option C: Clone and install in editable mode (for development)
 
 ```bash
 git clone https://github.com/francescoa97outlook/SPINO
 cd SPINO
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate   # or a conda env
 pip install -e .
 ```
 

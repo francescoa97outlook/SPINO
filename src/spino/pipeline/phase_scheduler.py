@@ -21,6 +21,7 @@ from astropy.coordinates import (
 )
 from astropy.coordinates.baseframe import NonRotationTransformationWarning
 from astropy.time import Time
+from astropy.utils.exceptions import AstropyWarning
 import astropy.units as u
 
 # Moon/target separations are computed across ICRS↔GCRS; astropy ≥6 warns
@@ -28,6 +29,17 @@ import astropy.units as u
 # use case (degree-level Moon distance and illumination) the difference is
 # sub-arcsecond, so silence the warning rather than flooding the console.
 warnings.filterwarnings("ignore", category=NonRotationTransformationWarning)
+
+# Scheduling looks at *future* observation dates that lie beyond the IERS
+# Earth-orientation data bundled with astropy, so astropy falls back to the
+# 50-yr mean polar motion and warns.  The resulting error is at the arcsec
+# level - negligible for visibility/airmass - so silence just this message
+# (matched by text, to avoid muting unrelated AstropyWarnings).
+warnings.filterwarnings(
+    "ignore",
+    message=r".*polar motion.*",
+    category=AstropyWarning,
+)
 
 from phase_config import CUSTOM_PLANETS
 
@@ -75,7 +87,7 @@ def load_catalog(csv_path, source):
         df["pl_pubdate"] = pd.to_datetime(df["pl_pubdate"], errors="coerce")
         df = df.sort_values("pl_pubdate", ascending=False)
 
-    # Keep ephemeris-only rows (e.g. Kokori, Ivshina) that lack pl_rade —
+    # Keep ephemeris-only rows (e.g. Kokori, Ivshina) that lack pl_rade -
     # compose_best_rows will pull the radius from a different reference.
     df = df.dropna(subset=["pl_orbper"])
     df = df[df["pl_orbper"] > 0]
@@ -350,7 +362,7 @@ def to_bjd_tdb(t0_value, system_ref, ra_deg, dec_deg):
             key = "<missing>"
             if key not in _warned_unknown_tsys:
                 _warned_unknown_tsys.add(key)
-                print("  [to_bjd_tdb] pl_tsystemref missing — "
+                print("  [to_bjd_tdb] pl_tsystemref missing - "
                       "assuming BJD_TDB (no conversion).")
         return float(t0_value)
 
@@ -378,13 +390,13 @@ def to_bjd_tdb(t0_value, system_ref, ra_deg, dec_deg):
 
     if tok not in _warned_unknown_tsys:
         _warned_unknown_tsys.add(tok)
-        print(f"  [to_bjd_tdb] unknown pl_tsystemref={tok!r} — "
+        print(f"  [to_bjd_tdb] unknown pl_tsystemref={tok!r} - "
               "assuming BJD_TDB (no conversion).")
     return float(t0_value)
 
 
 # ================================================================== #
-#  4. TRANSIT GEOMETRY — Winn (2010)                                  #
+#  4. TRANSIT GEOMETRY - Winn (2010)                                  #
 # ================================================================== #
 def compute_transit_geometry(row):
     """
@@ -655,7 +667,7 @@ def compute_all_nights(target, obs, date_range, constraints,
 
 
 # ================================================================== #
-#  7. EVENT MATCHING — wrapped interval intersection                  #
+#  7. EVENT MATCHING - wrapped interval intersection                  #
 # ================================================================== #
 def _interval_width(intervals):
     """Sum of widths of non-wrapping intervals."""
@@ -691,7 +703,7 @@ def _observable_phase_intervals(phases, obs_mask):
     for k in range(1, len(ph)):
         diff = ph[k] - prev
         if abs(diff) > 0.5:
-            # Phase wrapped — extend to boundary for continuity
+            # Phase wrapped - extend to boundary for continuity
             if prev > 0.5:
                 intervals.append((seg_start, 1.0))
             else:
@@ -816,13 +828,16 @@ def main():
     print(f"  {len(df)} rows ({df['pl_name'].nunique()} planets) from {csv_path}")
 
     # Oldest publication date per planet (across all rows in the raw PS
-    # table) — used to gate PRESELECTION inclusion.
+    # table) - used to gate PRESELECTION inclusion.
     if "pl_pubdate" in df.columns:
         oldest_pubdate = df.groupby("pl_name")["pl_pubdate"].min()
     else:
         oldest_pubdate = pd.Series(dtype="datetime64[ns]")
 
-    preselection_dir = os.path.join(OUTPUT_DIR, "PRESELECTION")
+    # Qualifying planets are collected here and written to a single
+    # OUTPUT_DIR/preselection.csv at the end (no symlink farm, no duplicated
+    # files: the per-planet outputs stay only in their base folders).
+    preselection_rows = []
 
     # Merge per-planet first so EXTRA_FILTERS sees the best available
     # value for each field (e.g. pl_rade pulled from a non-ephemeris paper
@@ -835,7 +850,7 @@ def main():
     print(f"  After filters: {len(df_best)} planets")
 
     if df_best.empty and not CUSTOM_PLANETS:
-        print("  No planets to schedule — exiting.")
+        print("  No planets to schedule - exiting.")
         return df, df_best, []
 
     show = ["pl_name", "pl_orbper", "pl_rade", "pl_tranmid", "ra", "dec"]
@@ -929,26 +944,38 @@ def main():
         except Exception as e:
             print(f"  ⚠  summary card failed for {name}: {e}")
 
-        # ── PRESELECTION: symlink qualifying planets ────────────────
+        # ── PRESELECTION: collect qualifying planets for preselection.csv ──
         oldest_pd = oldest_pubdate.get(name) if len(oldest_pubdate) else None
         qualifies_year = (pd.notna(oldest_pd)
                           and oldest_pd.year > PRESELECTION_MIN_YEAR)
         qualifies_metrics = (bool(tsm_row.get("TSM_above"))
                              or bool(tsm_row.get("ESM_above")))
         if qualifies_year and qualifies_metrics:
-            os.makedirs(preselection_dir, exist_ok=True)
-            link_path = os.path.join(preselection_dir,
-                                     os.path.basename(planet_dir))
-            target_abs = os.path.abspath(planet_dir)
-            if os.path.lexists(link_path):
-                if os.path.islink(link_path):
-                    if os.readlink(link_path) != target_abs:
-                        os.unlink(link_path)
-                        os.symlink(target_abs, link_path)
-                # else: pre-existing real directory — leave it alone.
-            else:
-                os.symlink(target_abs, link_path)
-            print(f"  PRESELECTION → {link_path}")
+            preselection_rows.append({
+                "pl_name":        name,
+                "hostname":       row.get("hostname"),
+                "folder":         os.path.basename(planet_dir),
+                "pub_year":       oldest_pd.year,
+                "ra_deg":         row.get("ra"),
+                "dec_deg":        row.get("dec"),
+                "period_days":    tsm_row.get("Period_days"),
+                "Rp_Rearth":      tsm_row.get("Rp_Rearth"),
+                "Mp_Mearth":      tsm_row.get("Mp_Mearth"),
+                "Teq_K":          tsm_row.get("Teq_K"),
+                "density_gcm3":   tsm_row.get("density_gcm3"),
+                "category":       tsm_row.get("category"),
+                "T14_h":          geom.get("t14_h"),
+                "TSM":            tsm_row.get("TSM"),
+                "TSM_threshold":  tsm_row.get("TSM_threshold"),
+                "TSM_above":      tsm_row.get("TSM_above"),
+                "ESM":            tsm_row.get("ESM"),
+                "ESM_threshold":  tsm_row.get("ESM_threshold"),
+                "ESM_above":      tsm_row.get("ESM_above"),
+                "Rs_Rsun":        tsm_row.get("Rs_Rsun"),
+                "Teff_star":      tsm_row.get("Teff_star"),
+                "mag_J":          tsm_row.get("mag_J"),
+                "mag_K":          tsm_row.get("mag_K"),
+            })
 
         ra_deg  = float(row["ra"])
         dec_deg = float(row["dec"])
@@ -1034,6 +1061,14 @@ def main():
     print(f"  TOTAL: {len(all_events)} events across "
           f"{len(df_best)} planets")
     print(f"{'=' * 60}")
+
+    # Write the preselection table (recent + TSM/ESM above threshold).
+    if preselection_rows:
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        preselection_csv = os.path.join(OUTPUT_DIR, "preselection.csv")
+        pd.DataFrame(preselection_rows).to_csv(preselection_csv, index=False)
+        print(f"  PRESELECTION → {preselection_csv} "
+              f"({len(preselection_rows)} planets)")
 
     if not all_events:
         return df, df_best, all_events

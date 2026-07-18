@@ -23,11 +23,18 @@ visibility, TSM/ESM ranking, telluric-overlap plots) behind an editable graphica
 interface. Every parameter that used to live in a Python config file is now a
 form field.
 
-The widget/panel/theming layer is reused from the
-[GUIBRUSHR](https://www.ict.inaf.it/gitlab/guibrushr/guibrushr) project; the
+The widget/panel/theming layer is reused from
+[GUIBRUSHR](https://www.ict.inaf.it/gitlab/guibrushr/guibrushr), an earlier toolkit
+by the same author; the
 scheduling pipeline is bundled in `src/spino/pipeline/`. **The whole thing is
 standalone**: all Python modules and data files it needs are vendored into the
 package, so it runs offline out of the box.
+
+> **Disclaimer.** SPINO is a first-look, organizational aid, not an authoritative
+> source. It turns a large catalog into a coherent, homogeneous shortlist so you can
+> assemble a proposal quickly, but every value it reports (ephemerides, visibility
+> windows, event durations, metrics) must be verified independently and carefully for
+> each target before use.
 
 ---
 
@@ -225,4 +232,5 @@ SPINO relies on several open-source packages, including
 [Matplotlib](https://matplotlib.org), [pandas](https://pandas.pydata.org),
 [Astropy](https://www.astropy.org), and
 [astroquery](https://astroquery.readthedocs.io), and reuses the GUI toolkit from
-[GUIBRUSHR](https://www.ict.inaf.it/gitlab/guibrushr/guibrushr).
+[GUIBRUSHR](https://www.ict.inaf.it/gitlab/guibrushr/guibrushr), an earlier toolkit
+by the same author.

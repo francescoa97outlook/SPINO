@@ -85,3 +85,19 @@ Thumbs.db
 # SPINO pipeline outputs
 phase_scheduler_output/
 *.settings.json
+
+# JOSS paper artifacts built by paper/build_paper_pdf.sh
+paper/paper.pdf
+paper/jats/
+paper/*.jats
+paper/*.html
+paper/*.crossref.xml
+paper/*.cff
+paper/paper.preprint.tex
+
+# Claude Code / AI assistant local files
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.claude.json
+.mcp.json

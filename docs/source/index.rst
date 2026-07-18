@@ -29,21 +29,30 @@ Welcome to SPINO's Documentation!
 **SPINO** (Software for exoPlanet vIsibility and Nightly Observations) is a
 self-contained Tkinter desktop application for planning exoplanet
 **transit / secondary-eclipse phase-coverage** observations. It wraps a
-scientific scheduling pipeline --- catalog loading, desert filtering, per-planet
-visibility, TSM/ESM ranking, and telluric-overlap plots --- behind an editable
+scientific scheduling pipeline (catalog loading, desert filtering, per-planet
+visibility, TSM/ESM ranking, and telluric-overlap plots) behind an editable
 graphical interface, so every parameter that used to live in a Python config
 file is now a form field.
 
-The widget/panel/theming layer is reused from the
-`GUIBRUSHR <https://www.ict.inaf.it/gitlab/guibrushr/guibrushr>`_ project; the
+The widget/panel/theming layer is reused from
+`GUIBRUSHR <https://www.ict.inaf.it/gitlab/guibrushr/guibrushr>`_, an earlier
+toolkit by the same author; the
 scheduling pipeline is bundled in ``src/spino/pipeline/``. The whole thing is
 standalone: all Python modules and data files it needs are vendored into the
 package, so it runs offline out of the box.
 
+.. note::
+
+   SPINO is a first-look, organizational aid, not an authoritative source. It turns
+   a large catalog into a coherent, homogeneous shortlist so you can assemble a
+   proposal quickly, but every value it reports (ephemerides, visibility windows,
+   event durations, metrics) must be verified independently and carefully for each
+   target before use.
+
 Key Features
 ------------
 
-* **Every config parameter is editable in the GUI** --- catalog source, desert /
+* **Every config parameter is editable in the GUI**: catalog source, desert /
   extra filters, observatory (telescope + instrument + site), proposal window,
   observing & event-coverage constraints, hand-entered custom planets, the
   telluric-overlap plot grid, and all output / landscape settings.
@@ -82,7 +91,7 @@ derivative work SPINO is therefore also GPLv3. See
 Author & Contact
 ----------------
 
-**Francesco Amadori** --- francesco.a97.ing@outlook.it
+**Francesco Amadori**: francesco.a97.ing@outlook.it
 
 For questions, bug reports, or technical assistance, please use the
 `GitHub repository <https://github.com/francescoa97outlook/SPINO>`_.

@@ -3,8 +3,9 @@
 ## GUI toolkit (GUIBRUSHR)
 
 The GUI widget, panel, and theming classes under
-`src/spino/gui_toolkit/` are reused from the
-[**GUIBRUSHR**](https://www.ict.inaf.it/gitlab/guibrushr/guibrushr) project
+`src/spino/gui_toolkit/` are reused from
+[**GUIBRUSHR**](https://www.ict.inaf.it/gitlab/guibrushr/guibrushr), an earlier
+toolkit written by the same author as SPINO (Francesco Amadori)
 (`MyPanel`, `MyTabPanel`, `ScaleManager`, `GraphicsConfig`, `MyLabel`,
 `MyButton`, `MyEntry`, `MyTextField`, `MyDropDown`, `MyCheckBox`, `MyTable`,
 `HelpButton`, and `graphics.yaml`). They were copied and adapted (import prefix

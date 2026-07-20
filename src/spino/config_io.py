@@ -80,7 +80,7 @@ FILTER_COLUMNS = [
 CUSTOM_PLANET_FIELDS = [
     "pl_orbper", "pl_rade", "pl_bmasse", "pl_eqt", "st_teff", "st_mass",
     "st_rad", "st_jmag", "st_kmag", "ra", "dec", "pl_tranmid",
-    "pl_orbsmax", "pl_orbeccen", "v_sys",
+    "pl_orbsmax", "pl_orbeccen", "pl_orblper", "v_sys",
 ]
 
 TIMEZONES = [
@@ -186,7 +186,16 @@ HELP: Dict[str, Dict[str, str]] = {
         "ra / dec": "Right ascension / declination [deg] (needed for visibility).",
         "pl_tranmid": "Transit mid-time [BJD] (needed for the ephemeris).",
         "pl_orbsmax": "Semi-major axis [AU] (optional; else from Kepler's 3rd law).",
-        "pl_orbeccen": "Orbital eccentricity (optional, default 0).",
+        "pl_orbeccen": "Orbital eccentricity (optional). Leave it null, or "
+                       "omit it, to treat the orbit as circular; that is also "
+                       "what happens below 0.01, where the eccentric and "
+                       "circular radial-velocity traces are indistinguishable.",
+        "pl_orblper": "Argument of periastron of the planet [deg] (optional). "
+                      "Leave it null, or omit it, when it is unknown: with a "
+                      "non-zero eccentricity the planetary radial velocity is "
+                      "then shown as an envelope over all possible values "
+                      "rather than assuming one, and the transit geometry "
+                      "(T14, phi_sec) is flagged as unreliable in the log.",
         "v_sys": "Systemic radial velocity [km/s] for the telluric-overlap plot.",
         "Buttons": "Validate JSON checks the text parses; Insert example appends a "
                    "template planet; Clear empties the list.",

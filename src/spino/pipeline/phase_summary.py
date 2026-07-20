@@ -23,6 +23,7 @@ from astroquery.simbad import Simbad
 
 from phase_tsm_calculator import TSM_ESM_Calculator
 from phase_scale_height import compute_scale_height
+import phase_kepler
 
 
 _MISSING = "/"
@@ -213,6 +214,25 @@ def _fmt(val, fmt: str = ".3f") -> str:
         return s if s and s.lower() != "nan" else _MISSING
 
 
+def format_kp_cell(kp_kms, ecc) -> str:
+    """
+    Text for the ``Kp`` row of the summary card.
+
+    A circular orbit shows one value.  An eccentric one shows both, because
+    the eccentricity-corrected amplitude is what the pipeline actually uses to
+    predict the planetary trace, and a reader comparing the card against a
+    published K_p needs to see which is which.
+    """
+    if kp_kms is None or not np.isfinite(kp_kms):
+        return _MISSING
+
+    kp_ecc = phase_kepler.kp_eccentric(kp_kms, ecc) if _finite(ecc) else None
+    if not _finite(ecc) or float(ecc) < phase_kepler.ECC_MIN:
+        return _fmt(kp_kms, ".3f")
+
+    return f"{float(kp_kms):.2f} → {kp_ecc:.2f}"
+
+
 def _short_ref(refname) -> str:
     """
     Extract a short "Author+Year" citation from NEA pl_refname HTML.
@@ -380,7 +400,8 @@ def save_planet_summary(row, tsm_row, sh_results, planet_dir,
         ("e",             _fmt(row.get("pl_orbeccen"), ".4f"), "",      src_of("pl_orbeccen")),
         ("ω",             _fmt(row.get("pl_orblper"),  ".2f"), "°",     src_of("pl_orblper")),
         ("i",             _fmt(row.get("pl_orbincl"),  ".2f"), "°",     src_of("pl_orbincl")),
-        ("Kp",            _fmt(kp_kms,                 ".3f"), "km s⁻¹", ""),
+        ("Kp",            format_kp_cell(kp_kms, row.get("pl_orbeccen")),
+                                                              "km s⁻¹", ""),
         ("T₁₄ (prim.)",   _fmt(t14,                    ".3f"), "h",     ""),
         ("T₂₃ (prim.)",   _fmt(t23,                    ".3f"), "h",     ""),
         ("T₁₂ ingress",   _fmt(t12,                    ".3f"), "h",     ""),

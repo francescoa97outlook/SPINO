@@ -58,10 +58,30 @@ catalog. Recognised fields (all optional except `pl_name`):
 
 `pl_name`, `pl_orbper` (d), `pl_rade` (R⊕), `pl_bmasse` (M⊕), `pl_eqt` (K),
 `st_teff` (K), `st_mass` (M☉), `st_rad` (R☉), `st_jmag`, `st_kmag`, `ra` (deg),
-`dec` (deg), `pl_tranmid` (BJD), `pl_orbsmax` (AU), `pl_orbeccen`, `v_sys` (km/s).
+`dec` (deg), `pl_tranmid` (BJD), `pl_orbsmax` (AU), `pl_orbeccen`, `pl_orblper`
+(deg), `v_sys` (km/s).
 
 For a target already in the catalog, any field you supply here overrides the
 catalog value while the rest are kept.
+
+### Orbit shape
+
+`pl_orbeccen` and `pl_orblper` drive the planetary radial-velocity trace on the
+telluric-overlap plot, and both accept `null` (or may be omitted entirely):
+
+- `pl_orbeccen` null, omitted, or below 0.01 means a circular orbit, with the
+  trace `Kp·sin(2πφ)`. Below that threshold the eccentric and circular traces
+  are indistinguishable at any realistic spectral resolution.
+- With a non-negligible eccentricity and `pl_orblper` given, the trace is the
+  full Keplerian solution, and the circular approximation is drawn alongside it
+  so the difference is visible.
+- With a non-negligible eccentricity and `pl_orblper` null or omitted, there is
+  no preferred trace: the plot shows the envelope spanned by every possible
+  argument of periastron, and the transit geometry (`T14`, `phi_sec`) is
+  flagged as unreliable in the run log, since it too depends on this angle.
+
+An eccentricity outside `[0, 1)` is rejected with a warning and the orbit falls
+back to circular.
 
 ## Telluric position plot
 

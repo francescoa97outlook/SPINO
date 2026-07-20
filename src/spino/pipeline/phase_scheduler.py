@@ -42,6 +42,19 @@ warnings.filterwarnings(
 )
 
 from phase_config import CUSTOM_PLANETS
+import phase_kepler
+
+# Targets already warned about a missing argument of periastron, so that the
+# message appears once per target instead of once per computed night.
+_geom_omega_warned: set[str] = set()
+
+
+def _warn_geom_omega_once(planet_name, msg: str) -> None:
+    key = str(planet_name)
+    if key in _geom_omega_warned:
+        return
+    _geom_omega_warned.add(key)
+    print(f"  ⚠  {msg}")
 
 # ================================================================== #
 #  CONSTANTS                                                          #
@@ -416,6 +429,16 @@ def compute_transit_geometry(row):
         ecc = 0.0
     omega_planet = row.get("pl_orblper", np.nan)
     if pd.isna(omega_planet):
+        # T14 and phi_sec both depend on omega for an eccentric orbit, so
+        # falling back to 0 deg is an assumption, not a neutral default.  Say
+        # so rather than let it pass as a measured geometry.
+        if ecc >= phase_kepler.ECC_MIN:
+            _warn_geom_omega_once(
+                row.get("pl_name", "?"),
+                f"{row.get('pl_name', '?')}: e = {ecc:.3f} but omega is "
+                f"unavailable; transit geometry (T14, phi_sec) assumes "
+                f"omega_p = 0 deg and is unreliable",
+            )
         omega_planet = 0.0
     omega_star = omega_planet + 180.0                # Winn convention
     omega_rad = np.radians(omega_star)
@@ -1000,6 +1023,13 @@ def main():
             print(f"  ⚠  Kp compute failed for {name}: {exc}")
             kp_kms = None
 
+        # Orbit shape for the planetary RV trace.  Kept as None when the
+        # catalogue does not give them, so that phase_kepler can pick the
+        # circular / Keplerian / omega-envelope branch explicitly instead of
+        # silently defaulting.
+        ecc_cat = row.get("pl_orbeccen")
+        omega_cat = row.get("pl_orblper")
+
         target = {
             "name": name,
             "ra_deg": ra_deg,
@@ -1008,6 +1038,8 @@ def main():
             "t0_bjd": t0_bjd,
             "v_sys_kms": v_sys_kms,
             "kp_kms": kp_kms,
+            "ecc": float(ecc_cat) if pd.notna(ecc_cat) else None,
+            "omega_p_deg": float(omega_cat) if pd.notna(omega_cat) else None,
         }
 
         print(f"  Computing nights ({DATE_RANGE['start']} → "

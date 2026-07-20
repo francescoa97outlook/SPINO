@@ -151,7 +151,9 @@ CUSTOM_PLANETS = [
     #     "dec":         27.3631342,       # deg
     #     "pl_tranmid":  2458845.37353,    # BJD
     #     "pl_orbsmax":  0.072,            # AU
-    #     "pl_orbeccen": 0.0,
+    #     "pl_orbeccen": 0.0,              # null/omitted -> treated as circular
+    #     "pl_orblper":  90.0,             # deg; null/omitted -> envelope over
+    #                                      # all omega when e is not negligible
     #     "v_sys":      -15.856,           # km/s
     # },
 ]

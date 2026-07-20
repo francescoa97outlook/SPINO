@@ -120,7 +120,20 @@ missing from the catalogue are completed from SIMBAD through Astroquery. The
 telluric-overlap diagram computes the planetary radial-velocity excursion during an
 event, including the barycentric contribution, against the telluric and stellar rest
 frames, which is the quantity of interest when assessing high-resolution
-cross-correlation observations.
+cross-correlation observations. That excursion follows the full Keplerian
+radial-velocity solution rather than the circular approximation
+$K_p\sin(2\pi\varphi)$, which is exact only in the $e=0$ limit 
+and for a catalogued eccentric orbit can be wrong by tens of km/s, 
+e.g. GJ 3470 b [@Bonfils2012; @Biddle2014; @Kosiarek2019],
+GJ 436 b [@Butler2004; @Maciejewski2015; @Trifonov2018],
+HAT-P-11 b [@Bakos2010; @Stassun2017; @Yee2018].
+When the orbital eccentricity is catalogued but the argument of periastron is not,
+SPINO does not assume a value for it; instead it plots the envelope spanned by every
+possible argument of periastron, alongside the circular approximation for reference,
+so the diagram shows the size of that uncertainty rather than hiding it behind an
+arbitrary default. A second panel of the same diagram plots this planet-minus-telluric
+radial-velocity difference against orbital phase across the whole event, so how the
+overlap evolves during the observation is visible, not only its extreme range.
 
 # Features
 
@@ -135,6 +148,8 @@ cross-correlation observations.
 - Per-planet outputs: summary card, event calendars, airmass plots, and an optional
   telluric-overlap diagram, plus a period-radius desert landscape and a preselection
   table.
+- Keplerian, not circular, planetary radial-velocity prediction for eccentric orbits,
+  with an explicit uncertainty envelope when the argument of periastron is unknown.
 - A headless entry point, `python -m spino.runner settings.json`, which runs the same
   pipeline from a saved preset for scripted use.
 
@@ -163,14 +178,21 @@ derived and require independent verification.](figures/gui.png)
 ![Example pipeline output for a single scheduled target, WASP-83 b. Top left: target
 altitude and airmass versus time for one observable transit, with the transit itself
 highlighted along the trajectory and the twilight bands shaded. Bottom left: the
-telluric-overlap diagram used for high-resolution spectroscopy, showing the planetary
-radial-velocity excursion during the event against the telluric rest
-frame. Right: the one-page parameter summary card for the target, whose ephemerides
-are drawn from the catalogue and, where available, from the ExoClock project
-[@kokori2023]. Every quantity shown here (ephemerides, visibility windows, event
-durations, systemic and radial velocities, and the TSM and ESM metrics) is derived
-from the input catalogue and must be verified independently for each target before it
-is used in a proposal.](figures/output.png)
+telluric-overlap diagram used for high-resolution spectroscopy, in two panels sharing
+the same planet-minus-telluric radial velocity. The left panel shows the telluric and
+stellar cross-correlation curves in the Earth frame together with the range of
+radial velocities the planet sweeps through during the event; the right panel plots
+that same radial-velocity difference against orbital phase across the event, showing
+how the overlap evolves rather than only its extreme range. WASP-83 b has a catalogued
+eccentricity of 0.12 but no catalogued argument of periastron, so both panels show the
+envelope spanned by every possible argument of periastron alongside the circular
+approximation, making explicit that the two differ here by up to 16.7 km/s. Right: the
+one-page parameter summary card for the target, whose ephemerides are drawn from the
+catalogue and, where available, from the ExoClock project [@kokori2023]. Every quantity
+shown here (ephemerides, visibility windows, event durations, systemic and radial
+velocities, and the TSM and ESM metrics) is derived from the input catalogue and must
+be verified independently for each target before it is used in a
+proposal.](figures/output.png)
 
 # AI usage disclosure
 

@@ -22,7 +22,7 @@ _EXAMPLE = {
     "pl_bmasse": 37.3, "pl_eqt": 886.4, "st_teff": 5634.0, "st_mass": 0.9883,
     "st_rad": 0.9169, "st_jmag": 5.624, "st_kmag": 5.258, "ra": 117.4793699,
     "dec": 27.3631342, "pl_tranmid": 2458845.37353, "pl_orbsmax": 0.072,
-    "pl_orbeccen": 0.0, "v_sys": -15.856,
+    "pl_orbeccen": 0.0, "pl_orblper": 90.0, "v_sys": -15.856,
 }
 
 

@@ -11,11 +11,22 @@ authors:
   - name: Francesco Amadori
     orcid: 0000-0003-1316-1033
     affiliation: "1, 2"
+  - name: Paolo Giacobbe
+    orcid: 0000-0001-7034-7024
+    affiliation: "1"
+  - name: Matteo Brogi
+    orcid: 0000-0002-7704-0153
+    affiliation: "2, 1"
+  - name: Ilaria Carleo
+    orcid: 0000-0002-0810-3747
+    affiliation: "1, 3"
 affiliations:
   - name: "INAF, Osservatorio Astrofisico di Torino, via Osservatorio 20, 10025 Pino Torinese, Italy"
     index: 1
   - name: "Dipartimento di Fisica, Università degli Studi di Torino, via Pietro Giuria 1, I-10125 Torino, Italy"
     index: 2
+  - name: "Instituto de Astrofísica de Canarias (IAC), E-38205 La Laguna, Tenerife, Spain"
+    index: 3
 date: 18 July 2026
 bibliography: paper.bib
 ---

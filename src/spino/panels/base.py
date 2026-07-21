@@ -187,6 +187,22 @@ class FieldGrid:
             self._row += 1
         return w
 
+    def image(self, path: str, max_width: int = 220) -> Optional[tk.PhotoImage]:
+        """Centered image (e.g. the app logo) below the current rows."""
+        frame = tk.Frame(self.inner, bg=self.bg)
+        frame.grid(row=self._row, column=0, columnspan=5, sticky="ew", pady=(36, 4))
+        frame.grid_columnconfigure(0, weight=1)
+        self._row += 1
+
+        img = tk.PhotoImage(file=path)
+        if img.width() > max_width:
+            factor = max(1, img.width() // max_width)
+            img = img.subsample(factor, factor)
+        lbl = tk.Label(frame, image=img, bg=self.bg)
+        lbl.image = img  # keep a reference; Tk drops the image without it
+        lbl.grid(row=0, column=0)
+        return img
+
     def next_row(self) -> int:
         r = self._row
         self._row += 1

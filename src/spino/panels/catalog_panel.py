@@ -1,10 +1,15 @@
 """Catalog tab: source, online-fetch toggle, timeout, cache directory."""
 from __future__ import annotations
 
+import os
 from typing import Any, Dict
 
 from spino import config_io
 from spino.panels.base import FieldGrid, to_int
+
+_LOGO_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "data", "assets", "spino_logo.png"
+)
 
 
 class CatalogPanel:
@@ -18,6 +23,7 @@ class CatalogPanel:
                                   defaults["FETCH_NEA_ONLINE"])
         self._timeout = g.entry("NEA_FETCH_TIMEOUT [s]", defaults["NEA_FETCH_TIMEOUT"])
         self._catdir = g.path("CATALOG_DIR", defaults["CATALOG_DIR"], mode="dir")
+        g.image(_LOGO_PATH, max_width=440)
 
     def collect(self) -> Dict[str, Any]:
         return {

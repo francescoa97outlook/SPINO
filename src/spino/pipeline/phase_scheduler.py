@@ -44,17 +44,25 @@ warnings.filterwarnings(
 from phase_config import CUSTOM_PLANETS
 import phase_kepler
 
-# Targets already warned about a missing argument of periastron, so that the
-# message appears once per target instead of once per computed night.
-_geom_omega_warned: set[str] = set()
+# Targets already warned about a given geometry caveat (missing omega,
+# non-transiting composite geometry, silent trandur fallback, ...), so each
+# distinct message appears once per (target, caveat) instead of once per
+# computed night.  Keyed by (planet_name, warning_key); the bare planet_name
+# string is also accepted for backward compatibility with existing callers
+# and tests that only care about the omega warning.
+_geom_omega_warned: set = set()
 
 
-def _warn_geom_omega_once(planet_name, msg: str) -> None:
-    key = str(planet_name)
+def _warn_geom_once(planet_name, warning_key: str, msg: str) -> None:
+    key = (str(planet_name), warning_key)
     if key in _geom_omega_warned:
         return
     _geom_omega_warned.add(key)
     print(f"  ⚠  {msg}")
+
+
+def _warn_geom_omega_once(planet_name, msg: str) -> None:
+    _warn_geom_once(planet_name, "omega", msg)
 
 # ================================================================== #
 #  CONSTANTS                                                          #
@@ -62,6 +70,7 @@ def _warn_geom_omega_once(planet_name, msg: str) -> None:
 _R_SUN_AU = 0.00465047                    # R_Sun in AU
 _R_EARTH_RSUN = 6.371e6 / 6.957e8        # R_Earth / R_Sun
 RJUP_TO_REARTH = 11.209                   # R_Jup / R_Earth
+ORBSMAX_KEPLER_TOL = 0.25                 # max |a/a_kepler - 1| before rejecting a donor
 
 
 # ================================================================== #
@@ -192,6 +201,79 @@ def filter_catalog(df, desert_filter, polygon, extra_filters):
     return out
 
 
+def _a_from_kepler(P_days, st_mass):
+    """Semi-major axis [AU] from Kepler's 3rd law, or NaN if inputs missing."""
+    if pd.isna(P_days) or pd.isna(st_mass) or st_mass <= 0:
+        return np.nan
+    return ((P_days / 365.25) ** 2 * st_mass) ** (1.0 / 3.0)
+
+
+def _reconcile_orbsmax(composite, sources, group) -> bool:
+    """
+    Cross-check ``composite['pl_orbsmax']`` against Kepler's 3rd law.
+
+    ``compose_best_rows`` fills every field independently from the most
+    recent reference that reports it, so ``pl_orbsmax`` can end up paired
+    with a ``pl_orbincl``/``st_rad``/``pl_rade`` combination from *other*
+    references it was never measured against.  A semi-major axis that is
+    wildly inconsistent with P and M* (via a = ((P/365.25)^2 * M*)^(1/3))
+    is a strong sign of exactly that mismatch, and downstream it can make
+    ``compute_transit_geometry`` require sqrt() of a negative number.
+
+    Walks ``group`` (already pubdate-desc sorted) and accepts the most
+    recent donor whose ``pl_orbsmax`` agrees with the Kepler estimate to
+    within ``ORBSMAX_KEPLER_TOL``.  If none agrees, falls back to the
+    Kepler estimate itself.  Returns True iff an existing (already-filled)
+    value was overridden -- i.e. an actual inconsistency was found and
+    corrected, as opposed to silently filling a field no donor had.
+    """
+    P = composite.get("pl_orbper")
+    st_mass = composite.get("st_mass")
+    a_kepler = _a_from_kepler(P, st_mass)
+    if pd.isna(a_kepler) or "pl_orbsmax" not in group.columns:
+        return False
+
+    current_a = composite.get("pl_orbsmax")
+    current_ref = sources.get("pl_orbsmax", "")
+
+    accepted = None
+    for _, cand in group[group["pl_orbsmax"].notna()].iterrows():
+        a = cand["pl_orbsmax"]
+        if pd.notna(a) and abs(a / a_kepler - 1.0) <= ORBSMAX_KEPLER_TOL:
+            accepted = cand
+            break
+
+    name = composite.get("pl_name", "?")
+    had_value = pd.notna(current_a)
+
+    if accepted is not None:
+        a = accepted["pl_orbsmax"]
+        ref = accepted.get("pl_refname", "")
+        corrected = had_value and (pd.isna(current_a) or a != current_a)
+        if corrected:
+            print(f"  [compose_best_rows] {name}: pl_orbsmax={current_a:.4g} AU "
+                  f"from {current_ref!r} incompatible with Kepler's 3rd law "
+                  f"(a_kepler={a_kepler:.4g} AU); using {ref!r} "
+                  f"(a={a:.4g} AU) instead")
+        composite["pl_orbsmax"] = a
+        composite["pl_orbsmaxerr1"] = accepted.get("pl_orbsmaxerr1", np.nan)
+        composite["pl_orbsmaxerr2"] = accepted.get("pl_orbsmaxerr2", np.nan)
+        sources["pl_orbsmax"] = ref
+        return corrected
+
+    # No reference's pl_orbsmax agrees with Kepler; fall back to the
+    # Kepler estimate itself rather than keep a value known to be wrong.
+    if had_value:
+        print(f"  [compose_best_rows] {name}: pl_orbsmax={current_a:.4g} AU "
+              f"from {current_ref!r} incompatible with Kepler's 3rd law and no "
+              f"other reference agrees; using a_kepler={a_kepler:.4g} AU")
+    composite["pl_orbsmax"] = a_kepler
+    composite["pl_orbsmaxerr1"] = np.nan
+    composite["pl_orbsmaxerr2"] = np.nan
+    sources["pl_orbsmax"] = "Kepler's 3rd law"
+    return had_value
+
+
 _EPHEMERIS_FIELDS = (
     "pl_orbper", "pl_orbpererr1", "pl_orbpererr2",
     "pl_tranmid", "pl_tranmiderr1", "pl_tranmiderr2",
@@ -267,6 +349,7 @@ def compose_best_rows(df):
 
     rows_out = []
     skipped = 0
+    n_orbsmax_reconciled = 0
     for name, group in df.groupby("pl_name", sort=False):
         # Ephemeris candidates need the four schedule-essential columns.
         eph_mask = group["pl_orbper"].notna() & group.get(
@@ -316,6 +399,9 @@ def compose_best_rows(df):
             composite[f] = donor[f]
             sources[f] = donor.get("pl_refname", "")
 
+        if _reconcile_orbsmax(composite, sources, group):
+            n_orbsmax_reconciled += 1
+
         composite["pl_refname"] = ref_eph
         composite["_field_sources"] = sources
         rows_out.append(composite)
@@ -323,6 +409,9 @@ def compose_best_rows(df):
     if skipped:
         print(f"  [compose_best_rows] {skipped} planets skipped "
               "(no row with pl_orbper+pl_tranmid+ra+dec)")
+    if n_orbsmax_reconciled:
+        print(f"  [compose_best_rows] {n_orbsmax_reconciled} planets had "
+              "pl_orbsmax reconciled against Kepler's 3rd law")
 
     out = pd.DataFrame(rows_out)
     return out.reset_index(drop=True)
@@ -450,13 +539,29 @@ def compute_transit_geometry(row):
 
     # --- semi-major axis ---
     a_AU = row.get("pl_orbsmax", np.nan)
-    if pd.isna(a_AU) and pd.notna(st_mass) and st_mass > 0:
-        a_AU = ((P / 365.25) ** 2 * st_mass) ** (1.0 / 3.0)
+    if pd.isna(a_AU):
+        a_AU = _a_from_kepler(P, st_mass)
 
     # If we still can't compute geometry, try pl_trandur as fallback
     if pd.isna(a_AU) or pd.isna(st_rad) or st_rad <= 0:
+        pname = row.get("pl_name", "?")
         trandur = row.get("pl_trandur", np.nan)      # hours from catalog
-        t14_h = trandur if pd.notna(trandur) and trandur > 0 else 2.0
+        if pd.notna(trandur) and trandur > 0:
+            t14_h = trandur
+            _warn_geom_once(
+                pname, "missing_a_or_rs_trandur",
+                f"{pname}: semi-major axis or stellar radius unavailable; "
+                f"using catalog pl_trandur={trandur:.3f} h for T14 instead "
+                f"of Winn (2010)",
+            )
+        else:
+            t14_h = 2.0
+            _warn_geom_once(
+                pname, "missing_a_or_rs_default",
+                f"{pname}: semi-major axis or stellar radius unavailable "
+                f"and no catalog pl_trandur; T14 assumed = 2.0 h "
+                f"(placeholder, not a measurement)",
+            )
         half_ph = (t14_h / 24.0) / (2.0 * P)
         phi_sec = 0.5
         if ecc > 0:
@@ -495,7 +600,62 @@ def compute_transit_geometry(row):
     if sin_i == 0:
         sin_i = 1e-10
 
-    # --- T14 (Eq. 14) ---
+    # --- eccentricity correction (Eq. 16) & secondary eclipse phase (Eq. 33) ---
+    # Neither depends on whether the composite geometry below actually
+    # transits, so compute them before the transit/no-transit branch.
+    sqrt_1me2 = np.sqrt(1.0 - ecc ** 2) if ecc < 1 else 1.0
+    ecc_prim = sqrt_1me2 / (1.0 + ecc * np.sin(omega_rad))
+    ecc_sec = sqrt_1me2 / (1.0 - ecc * np.sin(omega_rad))
+
+    phi_sec = 0.5
+    if ecc > 0 and sqrt_1me2 > 0:
+        phi_sec += (2.0 / np.pi) * ecc * np.cos(omega_rad) / sqrt_1me2
+
+    # --- T14 (Eq. 14): does this composite geometry transit at all? ---
+    # Mixing fields from different references (a, i, Rs, Rp each from
+    # whichever reference reported them most recently) can produce an
+    # impact parameter b > 1+k that no single reference ever measured --
+    # i.e. Eq. 14 would need sqrt() of a negative number.  That is a sign
+    # the *inputs* are inconsistent, not a valid grazing/non-transiting
+    # planet, so it must not silently become a NaN that later passes every
+    # comparison in match_events.
+    pname = row.get("pl_name", "?")
+    if (1.0 + k) ** 2 - b ** 2 <= 0:
+        trandur = row.get("pl_trandur", np.nan)
+        if pd.notna(trandur) and trandur > 0:
+            _warn_geom_once(
+                pname, "nontransiting_trandur",
+                f"{pname}: composite geometry does not transit "
+                f"(b={b:.3f} > 1+k={1.0 + k:.3f}); using catalog "
+                f"pl_trandur={trandur:.3f} h for T14 instead of Winn (2010)",
+            )
+            t14_h = float(trandur)
+            half_ph = (t14_h / 24.0) / (2.0 * P)
+            return {
+                "t14_h": t14_h, "t23_h": 0.0,
+                "half_ph": half_ph,
+                "phi_sec": phi_sec,
+                "t14_sec_h": t14_h,
+                "half_ph_sec": half_ph,
+                "b": b, "ecc": ecc, "omega_star_deg": omega_star,
+                "a_Rs": a_Rs, "k": k, "grazing": True,
+            }
+        _warn_geom_once(
+            pname, "nontransiting_nan",
+            f"{pname}: composite geometry does not transit "
+            f"(b={b:.3f} > 1+k={1.0 + k:.3f}) and no catalog pl_trandur is "
+            f"available; T14 left undefined (NaN) rather than assumed",
+        )
+        return {
+            "t14_h": np.nan, "t23_h": np.nan,
+            "half_ph": np.nan,
+            "phi_sec": phi_sec,
+            "t14_sec_h": np.nan,
+            "half_ph_sec": np.nan,
+            "b": b, "ecc": ecc, "omega_star_deg": omega_star,
+            "a_Rs": a_Rs, "k": k, "grazing": True,
+        }
+
     arg14 = np.sqrt((1.0 + k) ** 2 - b ** 2) / (a_Rs * sin_i)
     arg14 = np.clip(arg14, -1.0, 1.0)
     T14_circ = (P / np.pi) * np.arcsin(arg14)         # days
@@ -509,19 +669,9 @@ def compute_transit_geometry(row):
     else:
         T23_circ = 0.0
 
-    # --- eccentricity correction (Eq. 16) ---
-    sqrt_1me2 = np.sqrt(1.0 - ecc ** 2) if ecc < 1 else 1.0
-    ecc_prim = sqrt_1me2 / (1.0 + ecc * np.sin(omega_rad))
-    ecc_sec = sqrt_1me2 / (1.0 - ecc * np.sin(omega_rad))
-
     T14 = T14_circ * ecc_prim
     T23 = T23_circ * ecc_prim
     T14_sec = T14_circ * ecc_sec
-
-    # --- secondary eclipse phase (Eq. 33) ---
-    phi_sec = 0.5
-    if ecc > 0 and sqrt_1me2 > 0:
-        phi_sec += (2.0 / np.pi) * ecc * np.cos(omega_rad) / sqrt_1me2
 
     # --- phase half-widths ---
     half_ph = T14 / (2.0 * P)
@@ -556,20 +706,28 @@ def compute_event_windows(geom):
     half_ph_sec = geom["half_ph_sec"]
 
     windows = {
-        "transit": [(1.0 - half_ph, 1.0), (0.0, half_ph)],
+        "transit": [],
         "pre_eclipse": [],
         "post_eclipse": [],
     }
 
-    pre_start = 0.25
-    pre_end = phi_sec - half_ph_sec
-    if pre_end > pre_start:
-        windows["pre_eclipse"] = [(pre_start, pre_end)]
+    # A non-finite half-width means the geometry could not be resolved (e.g.
+    # a composite orbit that does not transit, see compute_transit_geometry).
+    # Leaving the corresponding window empty means match_events sees "no
+    # event" rather than a NaN interval that can spuriously match everything.
+    if np.isfinite(half_ph):
+        windows["transit"] = [(1.0 - half_ph, 1.0), (0.0, half_ph)]
 
-    post_start = phi_sec + half_ph_sec
-    post_end = 0.75
-    if post_end > post_start:
-        windows["post_eclipse"] = [(post_start, post_end)]
+    if np.isfinite(phi_sec) and np.isfinite(half_ph_sec):
+        pre_start = 0.25
+        pre_end = phi_sec - half_ph_sec
+        if pre_end > pre_start:
+            windows["pre_eclipse"] = [(pre_start, pre_end)]
+
+        post_start = phi_sec + half_ph_sec
+        post_end = 0.75
+        if post_end > post_start:
+            windows["post_eclipse"] = [(post_start, post_end)]
 
     return windows
 
@@ -769,14 +927,19 @@ def match_events(night, event_windows, event_constraints, geom):
             continue
 
         evt_width = _interval_width(evt_intervals)
-        if evt_width <= 0:
+        # NaN interval bounds must reject the event, not silently pass every
+        # comparison below (NaN comparisons are always False): a non-finite
+        # width belongs to unresolved geometry that compute_event_windows
+        # should already have filtered into an empty list, but this guards
+        # against any other source of non-finite phase intervals too.
+        if not np.isfinite(evt_width) or evt_width <= 0:
             continue
 
         inter_width = _interval_intersection_width(obs_intervals, evt_intervals)
         coverage = inter_width / evt_width
 
         min_cov = event_constraints.get(event_type, {}).get("min_coverage", 1.0)
-        if coverage < min_cov:
+        if not np.isfinite(coverage) or coverage < min_cov:
             continue
 
         # Find UT times and altitude at midpoint of the intersection
@@ -939,6 +1102,9 @@ def main():
             if ints:
                 w = _interval_width(ints)
                 print(f"  {etype:15s}: {ints}  (width={w:.5f})")
+            elif etype == "transit" and not np.isfinite(geom.get("half_ph", np.nan)):
+                print(f"  {etype:15s}: no window -- transit geometry unresolved "
+                      f"(t14_h is not finite)")
 
         # Compute TSM/ESM (and Simbad mags + scale heights) BEFORE
         # creating the planet directory, so the folder name can carry

@@ -118,6 +118,9 @@ def compute_tsm_esm(row, mags: dict[str, float]) -> dict | None:
         payload["a_AU"] = float(a_au)
     if _finite(mp):
         payload["Mp_Mearth"] = float(mp)
+    p_days = row.get("pl_orbper")
+    if _finite(p_days):
+        payload["P_days"] = float(p_days)
 
     try:
         return TSM_ESM_Calculator().compute(payload)

@@ -72,6 +72,13 @@ _R_EARTH_RSUN = 6.371e6 / 6.957e8        # R_Earth / R_Sun
 RJUP_TO_REARTH = 11.209                   # R_Jup / R_Earth
 ORBSMAX_KEPLER_TOL = 0.25                 # max |a/a_kepler - 1| before rejecting a donor
 
+# Below this shift the eclipse timing is treated as circular.  A time
+# tolerance rather than a bare eccentricity cut: e = 0.01 alone already
+# shifts the eclipse ~27 min at P = 3 d, well past what "circular" should
+# mean for minute-level scheduling.
+_ECC_TIMING_TOL_D = 60.0 / 86400.0        # 1 minute, in days
+_AU_LIGHT_S = 499.004784                  # light-travel time for 1 AU [s] (IAU tau_A)
+
 
 # ================================================================== #
 #  1. CATALOG LOADING                                                 #
@@ -505,32 +512,90 @@ def compute_transit_geometry(row):
     Compute primary transit and secondary eclipse geometry.
 
     Uses Winn (2010) arXiv:1001.2010:
-      Eq. 14-15 for T14/T23, Eq. 16 for ecc correction, Eq. 33 for phi_sec.
+      Eq. 14-15 for T14/T23, Eq. 16 for the eccentricity duration
+      correction (Eq. 7 for the occultation impact parameter b_occ).  The
+      secondary-eclipse phase and quadratures are solved exactly through
+      Kepler's equation (phase_kepler.secondary_eclipse_phase /
+      quadrature_phases) instead of Winn's Eq. 33, which is first order in
+      e and can be off by hours of phase at moderate eccentricity.
 
     Omega convention: NEA pl_orblper = omega_planet.
     Winn uses omega_star = omega_planet + 180 deg.
+
+    Primary-transit geometry (T14, T23, half_ph, ecc_prim, b) keeps its
+    existing e/omega treatment untouched; only the secondary-eclipse side
+    below is new.
     """
     P = row["pl_orbper"]                             # days
+    pname = row.get("pl_name", "?")
+
+    # Every assumption this geometry rests on (missing eccentricity,
+    # missing omega, eccentricity too small to matter, ...) is recorded
+    # here and carried out to events_summary.csv as "geom_flags", so a
+    # downstream consumer does not have to parse stderr to know what was
+    # assumed.
+    geom_flags = []
 
     # --- eccentricity & omega ---
-    ecc = row.get("pl_orbeccen", np.nan)
-    if pd.isna(ecc) or ecc < 0:
-        ecc = 0.0
-    omega_planet = row.get("pl_orblper", np.nan)
-    if pd.isna(omega_planet):
-        # T14 and phi_sec both depend on omega for an eccentric orbit, so
-        # falling back to 0 deg is an assumption, not a neutral default.  Say
-        # so rather than let it pass as a measured geometry.
-        if ecc >= phase_kepler.ECC_MIN:
-            _warn_geom_omega_once(
-                row.get("pl_name", "?"),
-                f"{row.get('pl_name', '?')}: e = {ecc:.3f} but omega is "
-                f"unavailable; transit geometry (T14, phi_sec) assumes "
-                f"omega_p = 0 deg and is unreliable",
-            )
+    ecc_raw = row.get("pl_orbeccen", np.nan)
+    ecc_missing = pd.isna(ecc_raw)
+    ecc = 0.0 if (ecc_missing or ecc_raw < 0) else ecc_raw
+    omega_planet_raw = row.get("pl_orblper", np.nan)
+    omega_known = pd.notna(omega_planet_raw)
+    omega_planet = omega_planet_raw
+    if not omega_known:
+        # T14 depends on omega for an eccentric orbit, so falling back to 0 deg
+        # is an assumption, not a neutral default.  Say so rather than let it
+        # pass as a measured geometry.  On a circular orbit omega drops out of
+        # every expression below, so neither the warning nor the flag applies:
+        # flagging those rows would bury the real cases under the ~59% of the
+        # catalogue that reports no eccentricity at all.
+        if ecc > 0.0:
+            geom_flags.append("omega_assumed_zero")
+            if ecc >= phase_kepler.ECC_MIN:
+                _warn_geom_omega_once(
+                    pname,
+                    f"{pname}: e = {ecc:.3f} but omega is "
+                    f"unavailable; transit duration T14 assumes "
+                    f"omega_p = 0 deg and is unreliable",
+                )
         omega_planet = 0.0
     omega_star = omega_planet + 180.0                # Winn convention
     omega_rad = np.radians(omega_star)
+
+    # --- secondary eclipse phase & quadratures (exact Kepler) ---
+    # The circular/eccentric split is a time tolerance, not a bare
+    # eccentricity cut (see _ECC_TIMING_TOL_D above).  When the shift
+    # matters and omega is unknown, no eclipse time can be trusted -- an
+    # assumed omega_p = 0 can displace it by a fifth of the orbit -- so
+    # both eclipse windows are suppressed (phi_sec = NaN) instead of being
+    # built on a guess.  This only concerns the eclipse; the transit branch
+    # below keeps its own omega_p = 0 assumption and warning untouched.
+    if ecc_missing:
+        geom_flags.append("ecc_assumed_zero")
+    if ecc == 0.0:
+        phi_sec = 0.5
+        quad_pre_ph, quad_post_ph = 0.25, 0.75
+    else:
+        worst_shift_d = phase_kepler.max_eclipse_phase_shift(ecc) * P
+        if worst_shift_d < _ECC_TIMING_TOL_D:
+            geom_flags.append("ecc_negligible")
+            phi_sec = 0.5
+            quad_pre_ph, quad_post_ph = 0.25, 0.75
+        elif not omega_known:
+            _warn_geom_once(
+                pname, "eclipse_omega_unknown",
+                f"{pname}: e = {ecc:.3f} shifts the eclipse by up to "
+                f"~{worst_shift_d * 1440.0:.0f} min but omega is "
+                f"unavailable; pre/post-eclipse windows are suppressed "
+                f"rather than built on an assumed omega_p = 0 deg",
+            )
+            phi_sec = np.nan
+            quad_pre_ph = quad_post_ph = np.nan
+        else:
+            phi_sec = phase_kepler.secondary_eclipse_phase(ecc, omega_planet)
+            quad_pre_ph, quad_post_ph = phase_kepler.quadrature_phases(
+                ecc, omega_planet)
 
     # --- stellar / planetary radii ---
     st_rad = row.get("st_rad", np.nan)               # R_Sun
@@ -541,13 +606,29 @@ def compute_transit_geometry(row):
     a_AU = row.get("pl_orbsmax", np.nan)
     if pd.isna(a_AU):
         a_AU = _a_from_kepler(P, st_mass)
+        if pd.notna(a_AU):
+            geom_flags.append("a_from_kepler")
+
+    # --- light-travel delay across the orbit (Roemer delay) ---
+    # Only needs a_AU, not the stellar radius, so it applies even on the
+    # "missing Rs" fallback below.  ~40 s at a = 0.04 AU; reduces to 2a/c
+    # for a circular orbit.  Quadratures need no such correction: the
+    # planet is at the same line-of-sight distance as the star there, to
+    # first order.
+    if pd.notna(a_AU) and a_AU > 0 and np.isfinite(phi_sec):
+        nu_tr = 0.5 * np.pi - omega_rad
+        nu_occ = -0.5 * np.pi - omega_rad
+        r_sum_over_a = (phase_kepler.orbital_radius_over_a(nu_tr, ecc)
+                         + phase_kepler.orbital_radius_over_a(nu_occ, ecc))
+        dt_ltt_d = a_AU * r_sum_over_a * _AU_LIGHT_S / 86400.0
+        phi_sec += dt_ltt_d / P
 
     # If we still can't compute geometry, try pl_trandur as fallback
     if pd.isna(a_AU) or pd.isna(st_rad) or st_rad <= 0:
-        pname = row.get("pl_name", "?")
         trandur = row.get("pl_trandur", np.nan)      # hours from catalog
         if pd.notna(trandur) and trandur > 0:
             t14_h = trandur
+            geom_flags.append("t14_from_trandur")
             _warn_geom_once(
                 pname, "missing_a_or_rs_trandur",
                 f"{pname}: semi-major axis or stellar radius unavailable; "
@@ -556,6 +637,7 @@ def compute_transit_geometry(row):
             )
         else:
             t14_h = 2.0
+            geom_flags.append("t14_placeholder")
             _warn_geom_once(
                 pname, "missing_a_or_rs_default",
                 f"{pname}: semi-major axis or stellar radius unavailable "
@@ -563,10 +645,6 @@ def compute_transit_geometry(row):
                 f"(placeholder, not a measurement)",
             )
         half_ph = (t14_h / 24.0) / (2.0 * P)
-        phi_sec = 0.5
-        if ecc > 0:
-            phi_sec += (2.0 / np.pi) * ecc * np.cos(omega_rad) \
-                       / np.sqrt(1.0 - ecc ** 2)
         return {
             "t14_h": t14_h, "t23_h": t14_h * 0.8,
             "half_ph": half_ph,
@@ -575,6 +653,9 @@ def compute_transit_geometry(row):
             "half_ph_sec": half_ph,
             "b": 0.0, "ecc": ecc, "omega_star_deg": omega_star,
             "a_Rs": np.nan, "k": np.nan, "grazing": False,
+            "b_occ": np.nan,
+            "quad_pre_ph": quad_pre_ph, "quad_post_ph": quad_post_ph,
+            "geom_flags": tuple(geom_flags),
         }
 
     a_Rs = a_AU / (st_rad * _R_SUN_AU)
@@ -587,6 +668,7 @@ def compute_transit_geometry(row):
     incl = row.get("pl_orbincl", np.nan)
     if pd.isna(incl):
         b = 0.0
+        cos_i = 0.0                                   # incl := 90 deg below
         incl = 90.0
     else:
         cos_i = np.cos(np.radians(incl))
@@ -600,16 +682,23 @@ def compute_transit_geometry(row):
     if sin_i == 0:
         sin_i = 1e-10
 
-    # --- eccentricity correction (Eq. 16) & secondary eclipse phase (Eq. 33) ---
-    # Neither depends on whether the composite geometry below actually
-    # transits, so compute them before the transit/no-transit branch.
+    # --- eccentricity correction (Eq. 16) ---
+    # ecc_prim feeds T14/T23 (transit) and ecc_sec feeds T14_sec (eclipse)
+    # below.  Neither depends on whether the composite geometry actually
+    # transits, so compute both before the transit/no-transit branch.
     sqrt_1me2 = np.sqrt(1.0 - ecc ** 2) if ecc < 1 else 1.0
     ecc_prim = sqrt_1me2 / (1.0 + ecc * np.sin(omega_rad))
     ecc_sec = sqrt_1me2 / (1.0 - ecc * np.sin(omega_rad))
 
-    phi_sec = 0.5
-    if ecc > 0 and sqrt_1me2 > 0:
-        phi_sec += (2.0 / np.pi) * ecc * np.cos(omega_rad) / sqrt_1me2
+    # --- occultation impact parameter (Winn 2010 Eq. 7, occultation sign) ---
+    # Distinct from the transit's `b` above whenever e*sin(omega_star) != 0;
+    # reusing the transit `b` here (as the previous code did) is exactly the
+    # LTT 9779 b bug: b_tra = 0.947 vs b_occ = 0.847, a 39% error in
+    # t14_sec for a near-grazing system.
+    if ecc > 0:
+        b_occ = a_Rs * cos_i * (1.0 - ecc ** 2) / (1.0 - ecc * np.sin(omega_rad))
+    else:
+        b_occ = a_Rs * cos_i
 
     # --- T14 (Eq. 14): does this composite geometry transit at all? ---
     # Mixing fields from different references (a, i, Rs, Rp each from
@@ -619,10 +708,10 @@ def compute_transit_geometry(row):
     # the *inputs* are inconsistent, not a valid grazing/non-transiting
     # planet, so it must not silently become a NaN that later passes every
     # comparison in match_events.
-    pname = row.get("pl_name", "?")
     if (1.0 + k) ** 2 - b ** 2 <= 0:
         trandur = row.get("pl_trandur", np.nan)
         if pd.notna(trandur) and trandur > 0:
+            geom_flags.append("t14_from_trandur")
             _warn_geom_once(
                 pname, "nontransiting_trandur",
                 f"{pname}: composite geometry does not transit "
@@ -639,6 +728,9 @@ def compute_transit_geometry(row):
                 "half_ph_sec": half_ph,
                 "b": b, "ecc": ecc, "omega_star_deg": omega_star,
                 "a_Rs": a_Rs, "k": k, "grazing": True,
+                "b_occ": b_occ,
+                "quad_pre_ph": quad_pre_ph, "quad_post_ph": quad_post_ph,
+                "geom_flags": tuple(geom_flags),
             }
         _warn_geom_once(
             pname, "nontransiting_nan",
@@ -654,6 +746,9 @@ def compute_transit_geometry(row):
             "half_ph_sec": np.nan,
             "b": b, "ecc": ecc, "omega_star_deg": omega_star,
             "a_Rs": a_Rs, "k": k, "grazing": True,
+            "b_occ": b_occ,
+            "quad_pre_ph": quad_pre_ph, "quad_post_ph": quad_post_ph,
+            "geom_flags": tuple(geom_flags),
         }
 
     arg14 = np.sqrt((1.0 + k) ** 2 - b ** 2) / (a_Rs * sin_i)
@@ -671,11 +766,36 @@ def compute_transit_geometry(row):
 
     T14 = T14_circ * ecc_prim
     T23 = T23_circ * ecc_prim
-    T14_sec = T14_circ * ecc_sec
 
     # --- phase half-widths ---
     half_ph = T14 / (2.0 * P)
-    half_ph_sec = T14_sec / (2.0 * P)
+
+    # --- eclipse duration (Eq. 14 with the occultation geometry) ---
+    # A system can transit and still not be occulted, or vice versa,
+    # whenever e*sin(omega_star) is sizeable -- unlike the transit check
+    # above, b_occ > 1+k here is a real, common outcome, not a sign of
+    # inconsistent inputs, so it must not fall back to pl_trandur (a
+    # transit duration, not an eclipse one).
+    if (1.0 + k) ** 2 - b_occ ** 2 <= 0:
+        _warn_geom_once(
+            pname, "nonocculting",
+            f"{pname}: occultation geometry does not occur "
+            f"(b_occ={b_occ:.3f} > 1+k={1.0 + k:.3f}); t14_sec left "
+            f"undefined (NaN) rather than reused from the transit",
+        )
+        T14_sec = np.nan
+        half_ph_sec = np.nan
+        geom_flags.append("nonocculting")
+    else:
+        if (1.0 - k) ** 2 - b_occ ** 2 <= 0:
+            # Grazing occultation: the sqrt() just above is numerically
+            # unstable here -- exactly LTT 9779 b's regime -- so flag
+            # t14_sec as approximate rather than pretend it is exact.
+            geom_flags.append("b_occ_grazing")
+        arg_sec = np.sqrt((1.0 + k) ** 2 - b_occ ** 2) / (a_Rs * sin_i)
+        arg_sec = np.clip(arg_sec, -1.0, 1.0)
+        T14_sec = (P / np.pi) * np.arcsin(arg_sec) * ecc_sec
+        half_ph_sec = T14_sec / (2.0 * P)
 
     return {
         "t14_h": T14 * 24.0,
@@ -690,6 +810,9 @@ def compute_transit_geometry(row):
         "a_Rs": a_Rs,
         "k": k,
         "grazing": bool(grazing),
+        "b_occ": b_occ,
+        "quad_pre_ph": quad_pre_ph, "quad_post_ph": quad_post_ph,
+        "geom_flags": tuple(geom_flags),
     }
 
 
@@ -700,10 +823,20 @@ def compute_event_windows(geom):
     """
     Phase windows for transit, pre-eclipse, post-eclipse.
     Phases in [0, 1).  Transit wraps around 0.
+
+    The pre-/post-eclipse outer bounds are the exact orbital quadratures
+    (``quad_pre_ph`` / ``quad_post_ph``, solved through Kepler's equation
+    -- see ``phase_kepler.quadrature_phases``), not the fixed 0.25 / 0.75
+    of a circular orbit.  For e = 0 the quadratures land exactly there, but
+    for an eccentric orbit a fixed outer bound can produce an empty window
+    on one side and an oversized one on the other (e.g. e = 0.3,
+    omega_p = 0 makes the old fixed-0.25 pre-eclipse window empty).
     """
     half_ph = geom["half_ph"]
     phi_sec = geom["phi_sec"]
     half_ph_sec = geom["half_ph_sec"]
+    quad_pre_ph = geom["quad_pre_ph"]
+    quad_post_ph = geom["quad_post_ph"]
 
     windows = {
         "transit": [],
@@ -718,14 +851,15 @@ def compute_event_windows(geom):
     if np.isfinite(half_ph):
         windows["transit"] = [(1.0 - half_ph, 1.0), (0.0, half_ph)]
 
-    if np.isfinite(phi_sec) and np.isfinite(half_ph_sec):
-        pre_start = 0.25
+    if (np.isfinite(phi_sec) and np.isfinite(half_ph_sec)
+            and np.isfinite(quad_pre_ph) and np.isfinite(quad_post_ph)):
+        pre_start = quad_pre_ph
         pre_end = phi_sec - half_ph_sec
         if pre_end > pre_start:
             windows["pre_eclipse"] = [(pre_start, pre_end)]
 
         post_start = phi_sec + half_ph_sec
-        post_end = 0.75
+        post_end = quad_post_ph
         if post_end > post_start:
             windows["post_eclipse"] = [(post_start, post_end)]
 
@@ -1086,10 +1220,11 @@ def main():
         print(f"\n  ✔  {len(_rows)} pianeti custom iniettati da config.py "
               f"({n_merged} mergiati con righe di catalogo)")
 
-    for _, row in df_best.iterrows():
+    n_planets = len(df_best)
+    for i_planet, (_, row) in enumerate(df_best.iterrows(), start=1):
         name = row["pl_name"]
         print(f"\n{'=' * 60}")
-        print(f"  ● {name}")
+        print(f"  ● [{i_planet}/{n_planets}] {name}")
         print(f"{'=' * 60}")
 
         geom = compute_transit_geometry(row)
@@ -1224,6 +1359,7 @@ def main():
             evts = match_events(n, windows, EVENT_CONSTRAINTS, geom)
             for e in evts:
                 e["planet"] = name
+                e["geom_flags"] = "|".join(geom["geom_flags"])
                 e["date"] = n["date_str"]
                 e["moon_illum"] = n["moon_illum"]
                 e["moon_sep"] = n["moon_sep"]
@@ -1283,9 +1419,11 @@ def main():
     for e in all_events:
         grouped.setdefault(e["planet"], []).append(e)
 
-    for planet_name, planet_events in grouped.items():
+    n_to_plot = len(grouped)
+    for i_plot, (planet_name, planet_events) in enumerate(grouped.items(), 1):
         planet_dir = planet_events[0]["_planet_dir"]
         obs_label = OBSERVATORY["name"].replace(" ", "_")
+        print(f"\n  ● [{i_plot}/{n_to_plot}] {planet_name}")
 
         # Calendar per event type
         for etype in ("transit", "pre_eclipse", "post_eclipse"):

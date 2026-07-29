@@ -103,6 +103,84 @@ def time_of_periastron(t0_bjd, period, ecc, omega_p_deg):
     return float(t0_bjd) - float(period) * M_tr / (2.0 * np.pi)
 
 
+def phase_of_true_anomaly(nu_rad, ecc, omega_p_deg):
+    """
+    Orbital phase in [0, 1) at which the planet reaches true anomaly
+    ``nu_rad``, measured from mid-transit (P = 1, T0 = 0).
+
+    Inverts `time_of_periastron`: the same eccentric-/mean-anomaly
+    conversion, evaluated at the given ``nu_rad`` instead of the transit's
+    ``nu_tr = pi/2 - omega_star``.
+
+    Parameters
+    ----------
+    nu_rad : float
+        True anomaly [rad].
+    ecc : float
+        Eccentricity, 0 <= e < 1.
+    omega_p_deg : float
+        Argument of periastron of the planet [deg] (NEA ``pl_orblper``
+        convention).
+
+    Returns
+    -------
+    float
+        Phase in [0, 1).
+    """
+    ecc = float(ecc)
+    E = 2.0 * np.arctan2(
+        np.sqrt(1.0 - ecc) * np.sin(0.5 * nu_rad),
+        np.sqrt(1.0 + ecc) * np.cos(0.5 * nu_rad),
+    )
+    M = E - ecc * np.sin(E)
+    t_peri = time_of_periastron(0.0, 1.0, ecc, omega_p_deg)
+    return float(np.mod(t_peri + M / (2.0 * np.pi), 1.0))
+
+
+def secondary_eclipse_phase(ecc, omega_p_deg):
+    """
+    Exact phase of the secondary eclipse (occultation), solved through
+    Kepler's equation rather than Winn (2010) Eq. 33's first-order
+    approximation in e -- the two disagree by up to several hours of phase
+    at moderate eccentricity.  Returns exactly 0.5 for e = 0.
+    """
+    omega_star = np.radians(float(omega_p_deg) + 180.0)
+    nu_occ = -0.5 * np.pi - omega_star
+    return phase_of_true_anomaly(nu_occ, ecc, omega_p_deg)
+
+
+def quadrature_phases(ecc, omega_p_deg):
+    """
+    Phases of the two orbital quadratures (true anomaly +/- 90 deg from
+    transit), the exact outer bounds of the pre-/post-eclipse windows.
+
+    Returns ``(0.25, 0.75)`` for e = 0.  Phase is monotonic in time within
+    one period under this anchoring, so ``pre < secondary_eclipse_phase <
+    post`` holds for every e -- no interval wrapping is needed downstream.
+    """
+    omega_star = np.radians(float(omega_p_deg) + 180.0)
+    nu_pre = np.pi - omega_star
+    nu_post = -omega_star
+    pre = phase_of_true_anomaly(nu_pre, ecc, omega_p_deg)
+    post = phase_of_true_anomaly(nu_post, ecc, omega_p_deg)
+    return pre, post
+
+
+def orbital_radius_over_a(nu_rad, ecc):
+    """Orbital radius in units of the semi-major axis, ``r/a``."""
+    ecc = float(ecc)
+    return (1.0 - ecc ** 2) / (1.0 + ecc * np.cos(nu_rad))
+
+
+def max_eclipse_phase_shift(ecc):
+    """
+    Worst case over all omega of ``|secondary_eclipse_phase(e, omega) -
+    0.5|``, used to decide whether omega actually matters for the eclipse
+    timing.  The extremum is at omega_star = 0, i.e. omega_p = 180 deg.
+    """
+    return abs(secondary_eclipse_phase(ecc, 180.0) - 0.5)
+
+
 def true_anomaly(t_bjd, t0_bjd, period, ecc, omega_p_deg):
     """
     True anomaly [rad] of the planet at times ``t_bjd``, with the orbit

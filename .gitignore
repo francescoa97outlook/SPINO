@@ -95,6 +95,11 @@ paper/*.crossref.xml
 paper/*.cff
 paper/paper.preprint.tex
 
+# "aux" is a reserved device name on Windows, so git cannot check out a path
+# containing it and the clone fails.  The real directory is data/auxiliary/;
+# this guard stops a stray duplicate from being committed again.
+src/spino/data/aux/
+
 # Claude Code / AI assistant local files
 .claude/
 CLAUDE.md

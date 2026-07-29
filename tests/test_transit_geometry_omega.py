@@ -45,11 +45,24 @@ class TestEccentricWithUnknownOmega:
         assert "0.218" in out
 
     def test_warns_only_once_per_target(self, capsys):
-        for _ in range(3):
+        # Eccentric + unknown omega triggers two *independent* one-shot
+        # warnings: the transit branch's own "omega assumed 0" caveat, and
+        # a distinct one from the eclipse-suppression decision (different
+        # _warn_geom_once key, since they describe different consequences --
+        # T14/phi_sec become unreliable vs. the eclipse windows disappear
+        # entirely).  Both must still be one-shot: the first call prints
+        # both lines, repeats print nothing new.
+        sched.compute_transit_geometry(row(ecc=0.218, omega=None))
+        first_call_lines = [ln for ln in capsys.readouterr().out.splitlines()
+                             if ln.strip()]
+        assert len(first_call_lines) == 2
+
+        for _ in range(2):
             sched.compute_transit_geometry(row(ecc=0.218, omega=None))
 
-        lines = [ln for ln in capsys.readouterr().out.splitlines() if ln.strip()]
-        assert len(lines) == 1
+        repeat_lines = [ln for ln in capsys.readouterr().out.splitlines()
+                         if ln.strip()]
+        assert repeat_lines == []
 
     def test_geometry_is_still_produced(self):
         geom = sched.compute_transit_geometry(row(ecc=0.218, omega=None))

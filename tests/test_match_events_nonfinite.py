@@ -39,6 +39,7 @@ class TestComputeEventWindowsWithNonFiniteGeometry:
     def test_nonfinite_half_ph_yields_no_transit_window(self):
         geom = {
             "half_ph": np.nan, "phi_sec": 0.5, "half_ph_sec": np.nan,
+            "quad_pre_ph": 0.25, "quad_post_ph": 0.75,
         }
 
         windows = sched.compute_event_windows(geom)
@@ -48,6 +49,7 @@ class TestComputeEventWindowsWithNonFiniteGeometry:
     def test_nonfinite_phi_sec_yields_no_eclipse_windows(self):
         geom = {
             "half_ph": 0.01, "phi_sec": np.nan, "half_ph_sec": np.nan,
+            "quad_pre_ph": 0.25, "quad_post_ph": 0.75,
         }
 
         windows = sched.compute_event_windows(geom)
@@ -59,7 +61,8 @@ class TestComputeEventWindowsWithNonFiniteGeometry:
         assert windows["transit"] != []
 
     def test_finite_geometry_is_unaffected(self):
-        geom = {"half_ph": 0.0082, "phi_sec": 0.4681, "half_ph_sec": 0.0082}
+        geom = {"half_ph": 0.0082, "phi_sec": 0.4681, "half_ph_sec": 0.0082,
+                 "quad_pre_ph": 0.25, "quad_post_ph": 0.75}
 
         windows = sched.compute_event_windows(geom)
 
@@ -72,7 +75,8 @@ class TestMatchEventsRejectsNonFiniteWindows:
         # The exact HD 219666 b regression: an unresolved (non-transiting)
         # composite geometry, run through the real compute_event_windows,
         # against a night where literally everything is observable.
-        geom_nan = {"half_ph": np.nan, "phi_sec": np.nan, "half_ph_sec": np.nan}
+        geom_nan = {"half_ph": np.nan, "phi_sec": np.nan, "half_ph_sec": np.nan,
+                    "quad_pre_ph": np.nan, "quad_post_ph": np.nan}
         windows = sched.compute_event_windows(geom_nan)
         night = _fully_observable_night()
 

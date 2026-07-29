@@ -6,24 +6,62 @@ authors:
   - family-names: Amadori
     given-names: Francesco
     email: francesco.amadori.97.astro@gmail.com
-    affiliation: "INAF Osservatorio Astrofisico di Torino"
+    affiliation: "INAF, Osservatorio Astrofisico di Torino, via Osservatorio 20, 10025 Pino Torinese, Italy; Dipartimento di Fisica, Università degli Studi di Torino, via Pietro Giuria 1, I-10125 Torino, Italy"
     orcid: "https://orcid.org/0000-0003-1316-1033"
+  - family-names: Giacobbe
+    given-names: Paolo
+    affiliation: "INAF, Osservatorio Astrofisico di Torino, via Osservatorio 20, 10025 Pino Torinese, Italy"
+    orcid: "https://orcid.org/0000-0001-7034-7024"
+  - family-names: Brogi
+    given-names: Matteo
+    affiliation: "Dipartimento di Fisica, Università degli Studi di Torino, via Pietro Giuria 1, I-10125 Torino, Italy; INAF, Osservatorio Astrofisico di Torino, via Osservatorio 20, 10025 Pino Torinese, Italy"
+    orcid: "https://orcid.org/0000-0002-7704-0153"
+  - family-names: Carleo
+    given-names: Ilaria
+    affiliation: "INAF, Osservatorio Astrofisico di Torino, via Osservatorio 20, 10025 Pino Torinese, Italy"
+    orcid: "https://orcid.org/0000-0002-0810-3747"
 repository-code: "https://github.com/francescoa97outlook/SPINO"
 url: "https://spino-exoplanets.readthedocs.io"
 abstract: >-
-  SPINO is a self-contained Tkinter desktop application for planning exoplanet
-  transit and secondary-eclipse phase-coverage observations. It wraps a
-  scientific scheduling pipeline (catalog loading, desert filtering, per-planet
-  visibility computation, TSM/ESM ranking, telluric-overlap plots) behind an
-  editable graphical interface, so that every scheduling parameter is a form
-  field rather than a line in a configuration file.
+  SPINO (Software for exoPlanet vIsibility and Nightly Observations) is a
+  self-contained desktop application that plans phase-coverage observations of
+  exoplanet transits and secondary eclipses. It wraps a scientific scheduling
+  pipeline behind an editable Tkinter graphical interface, so that every
+  parameter which would otherwise live in a Python configuration file becomes a
+  form field. Starting from a bundled snapshot of the NASA Exoplanet Archive
+  Planetary Systems table, optionally refreshed online and completed with SIMBAD
+  stellar magnitudes queried through Astroquery, SPINO applies Neptunian-desert
+  and user-defined filters, computes per-planet visibility for a given
+  observatory and proposal window, enforces event-coverage constraints for
+  transits and for the phase windows before and after secondary eclipse, and
+  ranks the surviving targets by the Transmission and Emission Spectroscopy
+  Metrics. For each scheduled planet it writes a one-page parameter summary
+  card, event calendars, airmass plots and an optional telluric-overlap diagram,
+  together with a period-radius desert landscape and a preselection table, as
+  PDF and CSV files. The telluric-overlap diagram, aimed at high-resolution
+  cross-correlation spectroscopy, follows the full Keplerian radial-velocity
+  solution rather than the circular approximation that is exact only for
+  circular orbits, and it plots the envelope over every possible argument of
+  periastron when that quantity is not catalogued, making the uncertainty
+  explicit instead of hiding it behind a default. The application runs offline
+  out of the box thanks to bundled catalogue caches and auxiliary data, and it
+  exposes a headless entry point, "python -m spino.runner settings.json", that
+  runs the same pipeline from a saved JSON preset, so that a target shortlist
+  can be handed over, audited and reproduced exactly as it was generated. SPINO
+  is intentionally a first-look organizational aid rather than an authoritative
+  source: every quantity it reports (ephemerides, visibility windows, event
+  durations, radial velocities, metrics) is catalogue-derived and must be
+  verified independently for each target before use in an observing proposal.
 keywords:
   - exoplanets
   - observation planning
   - transit visibility
   - secondary eclipse
+  - phase coverage
+  - high-resolution spectroscopy
+  - telluric contamination
   - astronomy
   - Python
 license: GPL-3.0-or-later
-version: "1.0.2"
+version: "1.0.3"
 date-released: "2026-07-29"

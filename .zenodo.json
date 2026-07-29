@@ -1,13 +1,29 @@
 {
   "title": "SPINO: Software for exoPlanet vIsibility and Nightly Observations",
-  "description": "SPINO is a self-contained Tkinter desktop application for planning exoplanet transit and secondary-eclipse phase-coverage observations. It wraps a scientific scheduling pipeline (catalog loading, desert filtering, per-planet visibility computation, TSM/ESM ranking, telluric-overlap plots) behind an editable graphical interface, so that every scheduling parameter is a form field rather than a line in a configuration file.",
+  "description": "SPINO (Software for exoPlanet vIsibility and Nightly Observations) is a self-contained desktop application for planning phase-coverage observations of exoplanet transits and secondary eclipses. Preparing a ground-based spectroscopic proposal normally means stitching together catalogue queries, visibility calculations, transit-duration geometry, spectroscopic-yield rankings and, for high-resolution work, a check that the planetary signal is not buried under telluric lines, typically with ad hoc scripts whose parameters are scattered across configuration files. SPINO turns that workflow into a single graphical tool: it wraps a scientific scheduling pipeline behind an editable Tkinter interface, so that every parameter which would otherwise live in a Python configuration file becomes a form field, with instrument presets and save/load of runs as JSON. Working from a bundled snapshot of the NASA Exoplanet Archive Planetary Systems table, optionally refreshed online and completed with SIMBAD stellar magnitudes queried through Astroquery, the pipeline applies Neptunian-desert and user-defined filters, computes per-planet visibility for a given observatory and proposal window, enforces event-coverage constraints for transits and for the phase windows before and after secondary eclipse, and ranks the surviving targets by the Transmission and Emission Spectroscopy Metrics. For each scheduled planet it writes a one-page parameter summary card, event calendars, airmass plots and an optional telluric-overlap diagram, together with a period-radius desert landscape and a preselection table, as PDF and CSV files. The telluric-overlap diagram, aimed at high-resolution cross-correlation spectroscopy, follows the full Keplerian radial-velocity solution rather than the circular approximation that is exact only for circular orbits, and plots the envelope over every possible argument of periastron when that quantity is not catalogued, making the uncertainty explicit instead of hiding it behind a default. A one-click run executes the pipeline in a background subprocess, streams its log into the window and lists the generated files for inspection. The application runs offline out of the box thanks to bundled catalogue caches and auxiliary data, and exposes a headless entry point, 'python -m spino.runner settings.json', that runs the same pipeline from a saved preset, so a target shortlist can be handed over, audited and reproduced exactly as it was generated. SPINO is intentionally a first-look organizational aid rather than an authoritative source: every quantity it reports (ephemerides, visibility windows, event durations, systemic and radial velocities, TSM and ESM) is catalogue-derived and must be verified independently for each target before use in an observing proposal.",
   "upload_type": "software",
   "license": "GPL-3.0-or-later",
+  "language": "eng",
   "creators": [
     {
       "name": "Amadori, Francesco",
-      "affiliation": "INAF Osservatorio Astrofisico di Torino",
+      "affiliation": "INAF, Osservatorio Astrofisico di Torino, Pino Torinese, Italy; Dipartimento di Fisica, Università degli Studi di Torino, Torino, Italy",
       "orcid": "0000-0003-1316-1033"
+    },
+    {
+      "name": "Giacobbe, Paolo",
+      "affiliation": "INAF, Osservatorio Astrofisico di Torino, Pino Torinese, Italy",
+      "orcid": "0000-0001-7034-7024"
+    },
+    {
+      "name": "Brogi, Matteo",
+      "affiliation": "Dipartimento di Fisica, Università degli Studi di Torino, Torino, Italy; INAF, Osservatorio Astrofisico di Torino, Pino Torinese, Italy",
+      "orcid": "0000-0002-7704-0153"
+    },
+    {
+      "name": "Carleo, Ilaria",
+      "affiliation": "INAF, Osservatorio Astrofisico di Torino, Pino Torinese, Italy",
+      "orcid": "0000-0002-0810-3747"
     }
   ],
   "keywords": [
@@ -15,11 +31,13 @@
     "observation planning",
     "transit visibility",
     "secondary eclipse",
+    "phase coverage",
+    "high-resolution spectroscopy",
+    "telluric contamination",
     "astronomy",
     "Python"
   ],
   "access_right": "open",
-  "language": "eng",
   "related_identifiers": [
     {
       "identifier": "https://spino-exoplanets.readthedocs.io",

@@ -202,7 +202,7 @@ For questions, bug reports, or technical assistance, please open an issue on the
 contact:
 
 **Francesco Amadori**
-📧 [francesco.a97.ing@outlook.it](mailto:francesco.a97.ing@outlook.it)
+📧 [francesco.amadori.97.astro@gmail.com](mailto:francesco.amadori.97.astro@gmail.com)
 
 ---
 
@@ -220,7 +220,11 @@ SPINO is therefore also GPLv3. See
 
 ## Citation
 
-If you use SPINO in your research, please cite this repository:
+If you use SPINO in your research, please cite it. Machine-readable metadata lives
+in [CITATION.cff](CITATION.cff): on GitHub, use the **"Cite this repository"**
+button in the sidebar to get a ready-made APA or BibTeX entry.
+
+Otherwise, cite the repository directly:
 [github.com/francescoa97outlook/SPINO](https://github.com/francescoa97outlook/SPINO).
 
 ---

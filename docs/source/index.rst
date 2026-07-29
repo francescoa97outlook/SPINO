@@ -91,7 +91,7 @@ derivative work SPINO is therefore also GPLv3. See
 Author & Contact
 ----------------
 
-**Francesco Amadori**: francesco.a97.ing@outlook.it
+**Francesco Amadori**: francesco.amadori.97.astro@gmail.com
 
 For questions, bug reports, or technical assistance, please use the
 `GitHub repository <https://github.com/francescoa97outlook/SPINO>`_.

@@ -11,7 +11,7 @@ description = "SPINO (Software for exoPlanet vIsibility and Nightly Observations
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "GPL-3.0-or-later" }
-authors = [{ name = "Francesco Amadori", email = "francesco.a97.ing@outlook.it" }]
+authors = [{ name = "Francesco Amadori", email = "francesco.amadori.97.astro@gmail.com" }]
 keywords = ["astronomy", "exoplanets", "transit", "scheduling", "visibility", "tkinter"]
 classifiers = [
     "Development Status :: 3 - Alpha",

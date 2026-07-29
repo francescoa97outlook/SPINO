@@ -1,0 +1,30 @@
+{
+  "title": "SPINO: Software for exoPlanet vIsibility and Nightly Observations",
+  "description": "SPINO is a self-contained Tkinter desktop application for planning exoplanet transit and secondary-eclipse phase-coverage observations. It wraps a scientific scheduling pipeline (catalog loading, desert filtering, per-planet visibility computation, TSM/ESM ranking, telluric-overlap plots) behind an editable graphical interface, so that every scheduling parameter is a form field rather than a line in a configuration file.",
+  "upload_type": "software",
+  "license": "GPL-3.0-or-later",
+  "creators": [
+    {
+      "name": "Amadori, Francesco",
+      "affiliation": "INAF Osservatorio Astrofisico di Torino",
+      "orcid": "0000-0003-1316-1033"
+    }
+  ],
+  "keywords": [
+    "exoplanets",
+    "observation planning",
+    "transit visibility",
+    "secondary eclipse",
+    "astronomy",
+    "Python"
+  ],
+  "access_right": "open",
+  "language": "eng",
+  "related_identifiers": [
+    {
+      "identifier": "https://spino-exoplanets.readthedocs.io",
+      "relation": "isDocumentedBy",
+      "scheme": "url"
+    }
+  ]
+}

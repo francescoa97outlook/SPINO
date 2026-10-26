@@ -1,4 +1,5 @@
-"""Catalog tab: source, online-fetch toggle, timeout, cache directory."""
+"""Catalog tab: source, online-fetch toggle, timeout, cache directory, and
+how eccentricity upper limits are read."""
 from __future__ import annotations
 
 import os
@@ -13,7 +14,8 @@ _LOGO_PATH = os.path.join(
 
 
 class CatalogPanel:
-    KEYS = ["CATALOG_SOURCE", "FETCH_NEA_ONLINE", "NEA_FETCH_TIMEOUT", "CATALOG_DIR"]
+    KEYS = ["CATALOG_SOURCE", "FETCH_NEA_ONLINE", "NEA_FETCH_TIMEOUT", "CATALOG_DIR",
+            "USE_ECC_UPPER_LIMITS"]
 
     def __init__(self, tab, bg: str, defaults: Dict[str, Any]):
         g = FieldGrid(tab, bg, "Catalog", config_io.HELP["Catalog"])
@@ -23,6 +25,9 @@ class CatalogPanel:
                                   defaults["FETCH_NEA_ONLINE"])
         self._timeout = g.entry("NEA_FETCH_TIMEOUT [s]", defaults["NEA_FETCH_TIMEOUT"])
         self._catdir = g.path("CATALOG_DIR", defaults["CATALOG_DIR"], mode="dir")
+        self._ecc_limits = g.checkbox(
+            "USE_ECC_UPPER_LIMITS (adopt eccentricity upper limits as values)",
+            defaults["USE_ECC_UPPER_LIMITS"])
         g.image(_LOGO_PATH, max_width=440)
 
     def collect(self) -> Dict[str, Any]:
@@ -31,6 +36,7 @@ class CatalogPanel:
             "FETCH_NEA_ONLINE": bool(self._online.get_value()),
             "NEA_FETCH_TIMEOUT": to_int(self._timeout.get_value(), 30),
             "CATALOG_DIR": self._catdir.get_value().strip(),
+            "USE_ECC_UPPER_LIMITS": bool(self._ecc_limits.get_value()),
         }
 
     def set_values(self, v: Dict[str, Any]) -> None:
@@ -38,3 +44,4 @@ class CatalogPanel:
         self._online.set_value(1 if v["FETCH_NEA_ONLINE"] else 0)
         self._timeout.set_value(v["NEA_FETCH_TIMEOUT"])
         self._catdir.set_value(v["CATALOG_DIR"])
+        self._ecc_limits.set_value(1 if v["USE_ECC_UPPER_LIMITS"] else 0)

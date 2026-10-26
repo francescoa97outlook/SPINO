@@ -24,6 +24,7 @@ from astroquery.simbad import Simbad
 from phase_tsm_calculator import TSM_ESM_Calculator
 from phase_scale_height import compute_scale_height
 import phase_kepler
+from nea_fetch import limit_flag
 
 
 _MISSING = "/"
@@ -131,7 +132,11 @@ def compute_tsm_esm(row, mags: dict[str, float]) -> dict | None:
 
 def compute_kp(row, tsm_row=None) -> float | None:
     """
-    Planetary RV semi-amplitude K_p [km/s] from NEA row.
+    Planetary RV semi-amplitude K_p [km/s] of a circular orbit, projected on
+    the line of sight -- the amplitude a Doppler trace actually follows:
+
+        K_p = (2 pi G / P)^(1/3) M* sin i / (M* + M_p)^(2/3).
+
     Falls back to ``tsm_row['Mp_Mearth']`` (Chen-Kipping estimate) when
     ``pl_bmasse`` is missing, and to i = 90° when ``pl_orbincl`` is missing.
     Returns None if period or stellar mass are unavailable.
@@ -154,15 +159,10 @@ def compute_kp(row, tsm_row=None) -> float | None:
     P_s = float(period) * 86400.0
     Mp = float(mp_earth) * M_earth
     Ms = float(ms_sun) * M_sun
-    Mp_min = Mp * sin_i
-    if Mp_min <= 0:
+    if Mp <= 0:
         return None
 
-    # Stellar RV semi-amplitude [m/s]
-    Ks = ((2 * np.pi * G_si) ** (1 / 3) * Mp_min) / (
-        P_s ** (1 / 3) * (Ms + Mp_min) ** (2 / 3)
-    )
-    Kp = Ms * Ks / Mp_min  # m/s
+    Kp = (2 * np.pi * G_si / P_s) ** (1 / 3) * Ms * sin_i / (Ms + Mp) ** (2 / 3)
     return Kp / 1e3  # km/s
 
 
@@ -215,6 +215,27 @@ def _fmt(val, fmt: str = ".3f") -> str:
     except (TypeError, ValueError):
         s = str(val).strip()
         return s if s and s.lower() != "nan" else _MISSING
+
+
+def _vsys_cell(vsys, nea_ref: str):
+    """(value, unit, source) of the systemic-velocity row of the card."""
+    if vsys is None:
+        return _MISSING, "", ""
+    v, err, source = vsys
+    text = f"{v:+.2f} ± {err:.2f}" if _finite(err) else f"{v:+.2f}"
+    shown = {"NEA": nea_ref, "user": "custom"}.get(source, source)
+    return text, "km s⁻¹", shown
+
+
+def fmt_limit(val, lim, fmt: str = ".3f") -> str:
+    """
+    Like ``_fmt``, prefixed with '<' for an upper limit and '>' for a lower
+    one (NEA limit flags 1 / -1), so a limit is never shown as a value.
+    """
+    text = _fmt(val, fmt)
+    if text == _MISSING:
+        return text
+    return {1: "< ", -1: "> "}.get(limit_flag(lim), "") + text
 
 
 def format_kp_cell(kp_kms, ecc) -> str:
@@ -272,7 +293,7 @@ def _short_ref(refname) -> str:
 
 
 def save_planet_summary(row, tsm_row, sh_results, planet_dir,
-                        mags=None, geom=None) -> str:
+                        mags=None, geom=None, vsys=None) -> str:
     """
     Render the per-planet summary PDF in *planet_dir*.  Returns the path.
     Missing values render as ``/``; never raises on missing data.
@@ -317,7 +338,7 @@ def save_planet_summary(row, tsm_row, sh_results, planet_dir,
 
     src = row.get("catalog_source")
     src_str = f"Source: {src}" if pd.notna(src) and str(src) else f"Source: {_MISSING}"
-    ax.text(0.93, 0.928, src_str, fontsize=9.0, color="#cccccc",
+    ax.text(0.93, 0.932, src_str, fontsize=9.0, color="#cccccc",
             fontfamily="serif", va="center", ha="right", style="italic")
 
     field_sources = row.get("_field_sources") or {}
@@ -329,11 +350,11 @@ def save_planet_summary(row, tsm_row, sh_results, planet_dir,
 
     eph_ref = src_of("pl_orbper") or src_of("pl_tranmid")
     if eph_ref:
-        ax.text(0.93, 0.908, f"Ephemeris: {eph_ref} (P, T₀)",
+        ax.text(0.93, 0.917, f"Ephemeris: {eph_ref} (P, T₀)",
                 fontsize=8.5, color="#aabbcc",
                 fontfamily="serif", va="center", ha="right", style="italic")
 
-    dy = 0.032
+    dy = 0.030
 
     def sec(x, y, text):
         ax.text(x, y, text, fontsize=11, fontweight="bold",
@@ -371,6 +392,7 @@ def save_planet_summary(row, tsm_row, sh_results, planet_dir,
         ("K mag",      _fmt(mags.get("K"),       ".2f"),     "",      src_of("sy_kmag")),
         ("V mag",      _fmt(mags.get("V"),       ".2f"),     "",      src_of("sy_vmag")),
         ("Sp. type",   sp_type,                              "",      src_of("st_spectype")),
+        (r"$v_{\rm sys}$", *_vsys_cell(vsys, src_of("st_radv"))),
     ]
     last_src = None
     for i, (lbl, val, unit, s) in enumerate(stellar):
@@ -400,10 +422,15 @@ def save_planet_summary(row, tsm_row, sh_results, planet_dir,
         ("Period",        _fmt(row.get("pl_orbper"),   ".6f"), "d",     src_of("pl_orbper")),
         ("T₀ (BJD)",      _fmt(row.get("pl_tranmid"),  ".4f"), "",      src_of("pl_tranmid")),
         ("a",             _fmt(row.get("pl_orbsmax"),  ".4f"), "AU",    src_of("pl_orbsmax")),
-        ("e",             _fmt(row.get("pl_orbeccen"), ".4f"), "",      src_of("pl_orbeccen")),
-        ("ω",             _fmt(row.get("pl_orblper"),  ".2f"), "°",     src_of("pl_orblper")),
+        ("e",             fmt_limit(row.get("pl_orbeccen"),
+                                    row.get("pl_orbeccenlim"), ".4f"),
+                                                               "",      src_of("pl_orbeccen")),
+        (r"$\omega_\star$", _fmt(row.get("pl_orblper"),  ".2f"), "°",     src_of("pl_orblper")),
         ("i",             _fmt(row.get("pl_orbincl"),  ".2f"), "°",     src_of("pl_orbincl")),
-        ("Kp",            format_kp_cell(kp_kms, row.get("pl_orbeccen")),
+        # The eccentricity the geometry actually used: an upper limit counts
+        # as circular unless the run was told to adopt it.
+        ("Kp",            format_kp_cell(kp_kms, (geom or {}).get(
+                                    "ecc", row.get("pl_orbeccen"))),
                                                               "km s⁻¹", ""),
         ("T₁₄ (prim.)",   _fmt(t14,                    ".3f"), "h",     ""),
         ("T₂₃ (prim.)",   _fmt(t23,                    ".3f"), "h",     ""),
@@ -427,7 +454,11 @@ def save_planet_summary(row, tsm_row, sh_results, planet_dir,
     teq = (tsm_row or {}).get("Teq_K", row.get("pl_eqt"))
     cat = (tsm_row or {}).get("category") or _MISSING
     mass_est = bool((tsm_row or {}).get("mass_estimated", False))
-    mp_str = f"{_fmt(mp, '.2f')}{'*' if mass_est else ''}"
+    # A catalogue mass known only as an upper limit is shown as such, and
+    # makes the TSM computed from it a lower limit.
+    mass_upper = (not mass_est) and limit_flag(row.get("pl_bmasselim")) == 1
+    mp_str = (fmt_limit(mp, 1, ".2f") if mass_upper
+              else f"{_fmt(mp, '.2f')}{'*' if mass_est else ''}")
 
     planetary = [
         ("Rp",       _fmt(rp,  ".3f"), "R⊕",     src_of("pl_rade")),
@@ -472,7 +503,8 @@ def save_planet_summary(row, tsm_row, sh_results, planet_dir,
         if _finite(val):
             tick_char = "✓" if ok else "✗"
             tick_col = "#1a7a1a" if ok else "#aa1111"
-            value_str = f"{_fmt(val, '.1f')}  (thr {thr:g})"
+            lower = -1 if (metric == "TSM" and mass_upper) else 0
+            value_str = f"{fmt_limit(val, lower, '.1f')}  (thr {thr:g})"
         else:
             tick_char = ""
             tick_col = "#666666"
@@ -547,7 +579,7 @@ def save_planet_summary(row, tsm_row, sh_results, planet_dir,
                  fontfamily="serif", color="#666", va="bottom")
 
     ax.text(0.50, 0.005,
-            "Neptunian Desert: Planet Parameter Summary",
+            "SPINO: Planet Parameter Summary",
             fontsize=8, color="#bbbbbb", fontfamily="serif",
             ha="center", va="bottom", style="italic")
 
@@ -582,10 +614,12 @@ def compute_planet_metrics(row) -> dict:
 
 
 def render_planet_summary(row, metrics: dict, planet_dir: str,
-                          geom=None) -> str:
+                          geom=None, vsys=None) -> str:
     """
     Render the per-planet summary PDF using precomputed *metrics*
-    (from ``compute_planet_metrics``).  Returns the output path.
+    (from ``compute_planet_metrics``) and the systemic velocity *vsys*
+    (from ``phase_stellar_rv.resolve_systemic_velocity``).  Returns the
+    output path.
     """
     os.makedirs(planet_dir, exist_ok=True)
     return save_planet_summary(
@@ -595,6 +629,7 @@ def render_planet_summary(row, metrics: dict, planet_dir: str,
         planet_dir,
         mags=metrics.get("mags"),
         geom=geom,
+        vsys=vsys,
     )
 
 

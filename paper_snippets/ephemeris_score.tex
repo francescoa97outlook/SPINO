@@ -1,0 +1,16 @@
+% SPINO paper snippet: ephemeris row selection, equation-free version.
+% Replaces the paragraph that introduced the score S, and the following ExoClock paragraph.
+% No equation, no label: if eq:ephscore is cross-referenced elsewhere in the paper, remove those \ref calls too.
+
+
+% =========================== VERSION A (full) ==============================
+
+The Planetary Systems table carries many rows per planet, one per published reference, so \texttt{SPINO} composes a single working row per planet before any downstream computation. Only the rows that simultaneously report orbital period, mid-transit time, right ascension, and declination are eligible to provide the ephemeris, since a row missing any of these cannot be used to predict and point a transit. Among the eligible rows, \texttt{SPINO} adopts the ephemeris of the reference whose period and mid-transit time are the most tightly constrained, with ties broken in favour of the most recent publication date. All remaining fields are taken, field by field, from the most recent reference that reports them, and the donor reference for each field is recorded and printed on the summary card.
+
+In practice this rule favours the ExoClock ephemerides \citep{kokori2023}, which are ingested into the NEA Planetary Systems table as ordinary reference rows and are, for most targets, the most precise entries available. \texttt{SPINO} therefore does not query the ExoClock service directly: when the summary card attributes an ephemeris to ExoClock, that attribution comes from the same donor-tracking mechanism used for every other field.
+
+
+% ========================= VERSION B (compact) =============================
+% Same content in a single paragraph, if the section needs to stay short.
+
+% The Planetary Systems table carries many rows per planet, one per published reference, so \texttt{SPINO} composes a single working row per planet before any downstream computation. The ephemeris is taken from the rows that simultaneously report orbital period, mid-transit time, right ascension, and declination, preferring the reference with the tightest constraints on period and mid-transit time and, in case of a tie, the most recent publication date; all remaining fields are taken, field by field, from the most recent reference that reports them, with the donor reference recorded and printed on the summary card. This rule usually selects the ExoClock ephemerides \citep{kokori2023}, which enter the Planetary Systems table as ordinary reference rows, so \texttt{SPINO} reaches them through the same donor-tracking mechanism used for every other field rather than through a direct query to the ExoClock service.

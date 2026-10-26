@@ -49,6 +49,7 @@ def _import_phase_config():
 CONFIG_KEYS: List[str] = [
     # catalog
     "CATALOG_SOURCE", "FETCH_NEA_ONLINE", "NEA_FETCH_TIMEOUT", "CATALOG_DIR",
+    "USE_ECC_UPPER_LIMITS",
     # filters
     "DESERT_FILTER", "EXTRA_FILTERS",
     # observatory
@@ -135,6 +136,15 @@ HELP: Dict[str, Dict[str, str]] = {
                             "back to the local CSV on failure.",
         "NEA_FETCH_TIMEOUT": "Seconds to wait for the online TAP response.",
         "CATALOG_DIR": "Directory holding the PS_latest_{source}.csv cache files.",
+        "USE_ECC_UPPER_LIMITS": "Some eccentricities are archived only as upper "
+                                "limits (e.g. e < 0.058). Unchecked, such orbits "
+                                "are treated as circular and flagged "
+                                "ecc_upper_limit. Checked, the limit is used as "
+                                "the eccentricity, a worst case: without an "
+                                "argument of periastron from the same reference "
+                                "the eclipse windows are suppressed and the "
+                                "planetary radial velocity becomes an envelope "
+                                "over every omega.",
     },
     "Filters": {
         "DESERT_FILTER": "Restrict to planets inside ('desert') / outside "
@@ -158,9 +168,13 @@ HELP: Dict[str, Dict[str, str]] = {
         "start": "Proposal window start date (YYYY-MM-DD).",
         "end": "Proposal window end date (YYYY-MM-DD).",
         "min_target_alt": "Minimum target elevation [deg] for observability.",
-        "max_sun_alt": "Maximum Sun altitude [deg]; -10 is NEA twilight, -18 is "
-                       "astronomical night.",
-        "moon_dist_factor": "Moon-distance guard (0 disables the check).",
+        "max_sun_alt": "Maximum Sun altitude [deg]; -6, -12 and -18 are civil, "
+                       "nautical and astronomical twilight.",
+        "moon_dist_factor": "Factor f of the Moon rule: the Moon-target distance "
+                            "must exceed f x illuminated fraction x 100 deg, or the "
+                            "Moon be below the horizon. Reported on the night plot "
+                            "and in events_summary.csv, never used to reject an "
+                            "event; 0 switches the rule off.",
         "transit": "Fraction of the transit that must be observable (1.0 = full).",
         "pre_eclipse": "Fraction of the pre-eclipse window that must be observable.",
         "post_eclipse": "Fraction of the post-eclipse window that must be observable.",
@@ -172,8 +186,12 @@ HELP: Dict[str, Dict[str, str]] = {
         "CUSTOM_PLANETS": "A JSON list of hand-entered targets injected into the "
                           "schedule in addition to the filtered catalog. Each list "
                           "item is one planet object. Leave as [] to schedule only "
-                          "the catalog. For a target already in the catalog, any "
-                          "field you set here overrides the catalog value.",
+                          "the catalog. Custom planets are added after the "
+                          "filters and are not filtered themselves. For a target "
+                          "that passes the filters, any field you set here "
+                          "overrides the catalog value; a target the filters "
+                          "remove is scheduled from the fields you give alone, "
+                          "so the filters should admit the planets entered here.",
         "pl_name": "Planet name (required); also used for the output subfolder.",
         "pl_orbper": "Orbital period [days], sets the phase/ephemeris.",
         "pl_rade": "Planet radius [R_earth].",
@@ -184,14 +202,16 @@ HELP: Dict[str, Dict[str, str]] = {
         "st_rad": "Stellar radius [R_sun].",
         "st_jmag / st_kmag": "Stellar J / K magnitudes (feed TSM/ESM).",
         "ra / dec": "Right ascension / declination [deg] (needed for visibility).",
-        "pl_tranmid": "Transit mid-time [BJD] (needed for the ephemeris).",
+        "pl_tranmid": "Transit mid-time [BJD_TDB] (needed for the ephemeris).",
         "pl_orbsmax": "Semi-major axis [AU] (optional; else from Kepler's 3rd law).",
         "pl_orbeccen": "Orbital eccentricity (optional). Leave it null, or "
                        "omit it, to treat the orbit as circular; that is also "
                        "what happens below 0.01, where the eccentric and "
                        "circular radial-velocity traces are indistinguishable.",
-        "pl_orblper": "Argument of periastron of the planet [deg] (optional). "
-                      "Leave it null, or omit it, when it is unknown: with a "
+        "pl_orblper": "Argument of periastron of the star's reflex orbit [deg], "
+                      "as published in radial-velocity papers and stored by the "
+                      "NASA Exoplanet Archive (optional; the planet's is this "
+                      "+180). Leave it null, or omit it, when it is unknown: with a "
                       "non-zero eccentricity the planetary radial velocity is "
                       "then shown as an envelope over all possible values "
                       "rather than assuming one, and the transit geometry "

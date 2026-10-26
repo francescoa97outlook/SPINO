@@ -31,15 +31,22 @@ FETCH_NEA_ONLINE  = False
 NEA_FETCH_TIMEOUT = 30
 CATALOG_DIR       = os.path.join(_DATA, "cat")
 
+# Eccentricities that the archive gives only as upper limits (e.g. e < 0.058)
+# are treated as circular orbits by default, and flagged.  Set True to use the
+# limit as the eccentricity instead: a worst-case geometry, in which the
+# eclipse windows are suppressed and the radial velocity becomes an envelope
+# over every omega whenever the reference gives no argument of periastron.
+USE_ECC_UPPER_LIMITS = False
+
 # "desert":    keep only planets inside the desert polygon
 # "nondesert": keep only planets outside the desert polygon
 # "all":       no desert filter (keep all planets)
 DESERT_FILTER = "all"
 
-# Single-target run on HD 63433 b: keep the catalog pipeline silent by
-# forcing an impossible filter so df_best is empty; HD 63433 b is then
-# injected via CUSTOM_PLANETS below.  Restore the original block below to
-# go back to the catalogue-wide run.
+# Sequential AND filters on the composed catalogue: each entry keeps the
+# planets whose column lies inside [min, max].  These are the filters of the
+# validation run of the SPINO paper (CRIRES+ at the VLT, 2027-05-01 to
+# 2028-04-30).
 EXTRA_FILTERS = [
     {"column": "pl_orbper",  "min": 0,    "max": 7},
     {"column": "pl_eqt",     "min": 300,  "max": 2000},
@@ -48,16 +55,6 @@ EXTRA_FILTERS = [
     {"column": "dec",        "min": -60,   "max": 0},
     {"column": "sy_kmag",    "min": 0,    "max": 11},
 ]
-
-# Original filters (restore to re-enable the curated catalogue run):
-# EXTRA_FILTERS = [
-#     {"column": "pl_orbper",  "min": 0,    "max": 15},
-#     {"column": "pl_eqt",     "min": 600,  "max": 5000},
-#     {"column": "pl_rade",    "min": 4,    "max": 30},
-#     {"column": "pl_bmasse",  "min": 15,   "max": 200},
-#     {"column": "sy_kmag",    "min": 0,    "max": 9},
-#     {"column": "dec",        "min": 10,   "max": 45},
-# ]
 
 # ============================================================== #
 #  PRESELECTION                                                   #
@@ -104,16 +101,17 @@ DATE_RANGE = {'start': '2027-05-01', 'end': '2028-04-30'}
 # ============================================================== #
 #  OBSERVING CONSTRAINTS                                          #
 # ============================================================== #
-# Defaults aligned with NASA Exoplanet Archive's TransitView tool:
-#   - target altitude  ≥ 20°   (NEA: "at least 20 degrees above")
-#   - Sun altitude     ≤ -10°  (NEA: "at least 10 degrees below")
-#   - moon constraint disabled (NEA shows but does not exclude based on moon).
+# A grid sample is observable when the target is above min_target_alt and
+# the Sun below max_sun_alt.  The Moon rule asks the Moon-target distance to
+# exceed moon_dist_factor x illuminated fraction x 100 deg, or the Moon to be
+# below the horizon, at local midnight; its result is reported on the night
+# plot and in events_summary.csv and never rejects an event.
 # Tighten any of these for higher-quality observations (e.g. alt=50,
 # sun=-18 for astronomical twilight, moon_dist_factor=0.8 for spectroscopy).
 CONSTRAINTS = {
     'min_target_alt': 20.0,       # minimum target elevation [deg]
-    'max_sun_alt':   -10.0,       # NEA TransitView default twilight [deg]
-    'moon_dist_factor': 0.0,      # 0 disables moon distance check
+    'max_sun_alt':   -10.0,       # maximum Sun altitude [deg]
+    'moon_dist_factor': 0.0,      # 0 switches the Moon rule off
 }
 
 # ============================================================== #
@@ -129,11 +127,10 @@ EVENT_CONSTRAINTS = {
     'post_eclipse': {'min_coverage': 0.5},   # 50 %
 }
 
-# Single-target run on HD 63433 b.  Values pulled from the neptunian
-# catalogue master.csv (Polanski 2024 ephemeris).  Re-enable the curated
-# list by uncommenting the import + assignment below.
-# from desert.neptunian_catalogue.curated_planets import as_phase_scheduler_list
-# CUSTOM_PLANETS = as_phase_scheduler_list(only_complete=True)
+# Hand-entered planets, added after EXTRA_FILTERS and not filtered
+# themselves.  An entry named like a planet of the filtered catalogue
+# overrides the fields it sets; an entry for a planet the filters remove is
+# scheduled from its own fields alone.  The commented entry is an example.
 
 CUSTOM_PLANETS = [
     # {
@@ -149,11 +146,13 @@ CUSTOM_PLANETS = [
     #     "st_kmag":     5.258,
     #     "ra":          117.4793699,      # deg
     #     "dec":         27.3631342,       # deg
-    #     "pl_tranmid":  2458845.37353,    # BJD
+    #     "pl_tranmid":  2458845.37353,    # BJD_TDB
     #     "pl_orbsmax":  0.072,            # AU
     #     "pl_orbeccen": 0.0,              # null/omitted -> treated as circular
-    #     "pl_orblper":  90.0,             # deg; null/omitted -> envelope over
-    #                                      # all omega when e is not negligible
+    #     "pl_orblper":  90.0,             # deg, omega of the star's reflex
+    #                                      # orbit, as in the NEA and RV papers;
+    #                                      # null/omitted -> envelope over all
+    #                                      # omega when e is not negligible
     #     "v_sys":      -15.856,           # km/s
     # },
 ]
@@ -236,7 +235,7 @@ _HAND_TUNED_REFERENCE = [
 # per planet via "v_sys" in CUSTOM_PLANETS.
 SKY_TRANSMISSION_FITS = os.path.join(_DATA, "sky_transmission.fits")
 TELLURIC_LAMBDA_RANGE_NM = (2359.0, 2426.0)    # GIANO-B order zero
-TELLURIC_RV_GRID_KMS     = (-50.0, 50.0, 1.5)  # (start, stop_inclusive, step)
+TELLURIC_RV_GRID_KMS     = (-50.0, 50.0, 1.0)  # (start, stop_inclusive, step)
 TELLURIC_PAD_HOURS       = 1.0                 # synthetic window pad each side
 TELLURIC_EXP_TIME_S      = 300.0               # synthetic exposure cadence
 

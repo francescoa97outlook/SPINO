@@ -1,0 +1,16 @@
+% SPINO paper snippet: observability geometry and night sampling grid, plain-language version.
+% Replaces the two paragraphs on EarthLocation / SkyCoord / AltAz and on the night grid.
+% Grounded on plan_nights() in src/spino/pipeline/phase_scheduler.py.
+
+
+% =========================== VERSION A (full) ==============================
+
+All observability calculations are performed with \texttt{Astropy} \citep{astropy2022}. The observing site is described by its latitude, longitude, and elevation, and the target by the right ascension and declination listed in the catalogue. From these, \texttt{SPINO} computes how high the target, the Sun, and the Moon stand above the horizon at any given time. Two small effects are ignored, namely the slow motion of the star on the sky and the bending of light by the atmosphere near the horizon. Both are far too small to change whether a transit can be observed, so including them would add complexity without changing any scheduling decision.
+
+Rather than solving for the observable window analytically, \texttt{SPINO} samples each night on a regular time grid, so that the height of the target, the height of the Sun, and the distance to the Moon can all be checked at the same instants. The grid is centred on local midnight, estimated from the longitude of the site alone, one hour of offset from UTC for every $15^\circ$. No time-zone information is used, so daylight saving time and administrative time zones have no effect on the result. The grid covers $\pm 7$ h around midnight in steps of 2 min, that is 421 points per night. This window is wider than the night itself at most sites: the part of it that is actually usable is selected later by the darkness and altitude criteria, not by the grid.
+
+
+% ========================= VERSION B (shortest) ============================
+% One paragraph, if the section needs to stay minimal.
+
+% All observability calculations are performed with \texttt{Astropy} \citep{astropy2022}, using the latitude, longitude, and elevation of the site and the catalogue coordinates of the target to compute how high the target, the Sun, and the Moon stand above the horizon. Each night is sampled on a regular time grid, centred on local midnight as estimated from the longitude alone, one hour of offset from UTC for every $15^\circ$, and covering $\pm 7$ h around it in steps of 2 min, that is 421 points per night. The usable part of this window is then selected by the darkness and altitude criteria described below.

@@ -28,10 +28,11 @@ NEA_COLUMNS = [
     # orbit
     "pl_orbper", "pl_orbpererr1", "pl_orbpererr2",
     "pl_orbsmax", "pl_orbsmaxerr1", "pl_orbsmaxerr2",
-    "pl_orbeccen", "pl_orblper", "pl_orbincl", "pl_imppar",
+    "pl_orbeccen", "pl_orbeccenlim", "pl_orblper", "pl_orblperlim",
+    "pl_orbincl", "pl_imppar",
     # planet
     "pl_rade", "pl_radeerr1", "pl_radeerr2",
-    "pl_bmasse", "pl_bmasseerr1", "pl_bmasseerr2",
+    "pl_bmasse", "pl_bmasseerr1", "pl_bmasseerr2", "pl_bmasselim",
     "pl_masse", "pl_msinie", "pl_dens", "pl_insol",
     "pl_eqt", "pl_tranmid", "pl_tranmiderr1", "pl_tranmiderr2",
     "pl_tsystemref", "pl_trandur", "pl_rvamp",
@@ -41,6 +42,19 @@ NEA_COLUMNS = [
     # system magnitudes
     "sy_jmag", "sy_hmag", "sy_kmag", "sy_vmag", "sy_gaiamag",
 ]
+
+
+def limit_flag(value) -> int:
+    """
+    NEA limit flag of a value: 0 for a measurement, 1 for an upper limit,
+    -1 for a lower limit.  A missing flag, or a catalogue cached before the
+    flag columns were downloaded, counts as a measurement.
+    """
+    try:
+        flag = float(value)
+    except (TypeError, ValueError):
+        return 0
+    return int(flag) if flag == flag else 0     # NaN != NaN
 
 
 def fetch_nea_catalog(out_path: str, source: str = "NEA",

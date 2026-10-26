@@ -72,3 +72,32 @@ class TestHelpExplainsNull:
 
     def test_argument_of_periastron_help_states_its_unit(self):
         assert "[deg]" in HELP_CUSTOM["pl_orblper"]
+
+
+class TestCustomEpochTimeSystem:
+    """A mid-transit time typed by the user is BJD_TDB: it must not inherit
+    the time system of the catalogue row it replaces."""
+
+    def _merge(self, base, custom):
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]
+                               / "src" / "spino" / "pipeline"))
+        import phase_scheduler as sched
+        return sched.merge_custom_planet(base, custom)
+
+    def test_a_custom_epoch_drops_the_catalogue_time_system(self):
+        row = self._merge({"pl_name": "X b", "pl_tranmid": 2458000.0,
+                           "pl_tsystemref": "HJD"},
+                          {"pl_name": "X b", "pl_tranmid": 2459000.0})
+        assert row["pl_tsystemref"] == "BJD-TDB"
+
+    def test_the_catalogue_time_system_stays_with_the_catalogue_epoch(self):
+        row = self._merge({"pl_name": "X b", "pl_tranmid": 2458000.0,
+                           "pl_tsystemref": "HJD"},
+                          {"pl_name": "X b", "v_sys": 1.0})
+        assert row["pl_tsystemref"] == "HJD"
+
+    def test_an_explicit_custom_time_system_is_kept(self):
+        row = self._merge({"pl_name": "X b", "pl_tsystemref": "BJD"},
+                          {"pl_name": "X b", "pl_tranmid": 2459000.0,
+                           "pl_tsystemref": "HJD"})
+        assert row["pl_tsystemref"] == "HJD"

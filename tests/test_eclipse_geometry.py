@@ -81,8 +81,9 @@ class TestRegressionForReportedBug:
         # a_Rs = 3 (grazing-ish, wide T14_sec) is exactly what starves the
         # old fixed pre_start = 0.25 of room: phi_sec - half_ph_sec ~ 0.245.
         a_AU = 3.0 * 0.75 * 0.00465047
+        # omega_p = 0 is omega_star = 180 in the catalogue's convention.
         geom = sched.compute_transit_geometry(
-            row(pl_orbeccen=0.3, pl_orblper=0.0, pl_orbsmax=a_AU))
+            row(pl_orbeccen=0.3, pl_orblper=180.0, pl_orbsmax=a_AU))
 
         windows = sched.compute_event_windows(geom)
 
@@ -101,8 +102,11 @@ class TestNonOccultingGeometry:
         incl = 87.0
         a_Rs = 0.7 / np.cos(np.radians(incl))
         a_AU = a_Rs * 0.75 * 0.00465047
+        # pl_orblper is omega_star: 90 deg puts the transit at periastron
+        # (e*sin(omega_star) = +0.6, small b) and the occultation at
+        # apoastron, four times further out in projection.
         geom = sched.compute_transit_geometry(row(
-            pl_orbper=4.0, pl_orbeccen=0.6, pl_orblper=270.0,
+            pl_orbper=4.0, pl_orbeccen=0.6, pl_orblper=90.0,
             pl_orbsmax=a_AU, pl_orbincl=incl,
         ))
 

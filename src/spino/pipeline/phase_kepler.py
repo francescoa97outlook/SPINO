@@ -10,11 +10,13 @@ importantly, the *shape* of the curve change: around the transit the offset
 term ``e·cos ω_p`` and the modified slope dominate the error, which can reach
 tens of km/s for well-known cases (GJ 3470 b, GJ 436 b, HAT-P-11 b).
 
-Angle convention, matching `phase_scheduler.compute_transit_geometry`:
-NEA ``pl_orblper`` is the argument of periastron of the *planet*, and Winn
-(2010, arXiv:1001.2010) uses ``ω_star = ω_p + 180°``.  The transit occurs at
-true anomaly ``ν_tr = π/2 − ω_star``, which anchors the time of periastron to
-the transit ephemeris T0.
+Angle convention: the functions here take ``ω_p``, the argument of periastron
+of the *planet*.  NEA ``pl_orblper`` is stored as published, which for the
+radial-velocity solutions it comes from is ``ω_star = ω_p − 180°``, that of the
+star's reflex orbit; `phase_scheduler.rv_orbit_shape` makes the conversion.
+The transit occurs at true anomaly ``ν_tr = π/2 − ω_star`` (Winn 2010,
+arXiv:1001.2010, Eq. 6), which anchors the time of periastron to the transit
+ephemeris T0.
 
 With that anchoring, ``planet_rv_kms`` reduces identically to
 ``K_p·sin(2π·φ)`` when e = 0, with the same sign as the rest of the pipeline
@@ -119,8 +121,8 @@ def phase_of_true_anomaly(nu_rad, ecc, omega_p_deg):
     ecc : float
         Eccentricity, 0 <= e < 1.
     omega_p_deg : float
-        Argument of periastron of the planet [deg] (NEA ``pl_orblper``
-        convention).
+        Argument of periastron of the planet [deg], i.e. NEA ``pl_orblper``
+        (omega_star) + 180.
 
     Returns
     -------
@@ -339,9 +341,11 @@ def describe_orbit_solution(sol) -> str:
         return f"orbit: circular (e = {sol['ecc']:.3f} < {ECC_MIN})"
 
     if sol["mode"] == "keplerian":
+        omega_star = (sol["omega_used"] + 180.0) % 360.0
         return (
             f"orbit: keplerian, e = {sol['ecc']:.3f}, "
-            f"omega_p = {sol['omega_used']:.1f} deg (NEA pl_orblper); "
+            f"omega_star = {omega_star:.1f} deg (NEA pl_orblper), "
+            f"omega_p = {sol['omega_used']:.1f} deg; "
             f"Kp {sol['kp_circ']:.2f} -> {sol['kp_ecc']:.2f} km/s; "
             f"max deviation from circular {sol['max_dev_circ']:.2f} km/s"
         )

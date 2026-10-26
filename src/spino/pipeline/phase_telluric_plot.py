@@ -31,7 +31,7 @@ import astropy.units as u
 from scipy.interpolate import InterpolatedUnivariateSpline
 import matplotlib.pyplot as plt
 
-from phase_plotter import _phase_in_windows
+from phase_plotter import _event_window_mask
 import phase_kepler
 
 CLIGHT_KMS = 2.997e5
@@ -47,7 +47,9 @@ C_TELLURIC = "k"          # telluric cross-correlation, Earth frame
 C_STAR     = "#4169E1"    # stellar cross-correlation
 C_PLANET   = "#FF8C00"    # planetary RV: adopted solution, and its omega envelope
 C_CIRCULAR = "#777777"    # the circular approximation, wherever it appears
-C_T14      = "#A8C4D9"    # transit duration, a time span rather than a velocity
+C_T14      = "#A8C4D9"    # transit duration (or emission window): a time span
+C_OBSERVED = "#3A5FA0"    # hatch over the part of an emission window observed
+C_ECLIPSE  = "#D9D9D9"    # the secondary eclipse, when the padded grid reaches it
 C_GUIDE    = "#AAAAAA"    # zero markers and other non-informative guides
 
 _warned_planets: set[str] = set()
@@ -71,15 +73,8 @@ def compute_synthetic_exposure_times(event, exp_time_s=300.0, pad_hours=1.0):
     times : astropy.time.Time
         UTC times of the synthetic exposure midpoints.
     """
-    night = event["_night"]
-    windows = event["_windows"]
-    event_type = event["event_type"]
-
-    times_utc = night["times_utc"]
-    phases = np.asarray(night["phases"], dtype=float)
-
-    in_event = _phase_in_windows(phases, windows.get(event_type, []))
-    idx = np.where(in_event)[0]
+    times_utc = event["_night"]["times_utc"]
+    idx = np.where(_event_window_mask(event))[0]
     if idx.size == 0:
         return None
 
@@ -96,59 +91,18 @@ def compute_synthetic_exposure_times(event, exp_time_s=300.0, pad_hours=1.0):
     return Time(grid_jd, format="jd", scale="utc")
 
 
-def compute_planet_telluric_drv(event, observatory, target, vsys_kms, kp_kms,
-                                t14_h, pad_min=30.0, step_s=200.0):
+def _transit_drv_grid(event, t0_bjd, period, t14_h, pad_min, step_s):
     """
-    Sample the planet–telluric RV difference on a fine time grid spanning
-    [T₁ − pad, T₄ + pad] with ``step_s`` cadence.
-
-    Tellurics sit at 0 km/s in the Earth frame, so:
-        ΔRV(t) = V_p(t) − 0 = V_sys + V_p,orbit(t) − V_bary(t)
-
-    ``V_p,orbit`` comes from `phase_kepler.orbit_solution`: the circular
-    ``K_p·sin(2π·φ)`` for e below `phase_kepler.ECC_MIN`, the Keplerian trace
-    when e and ω are both known, and the circular trace plus an envelope over
-    all ω when e is known but ω is not.
-
-    The midpoint of the transit is reconstructed from the linear ephemeris
-    (T₀, P) by picking the orbit number whose predicted midpoint sits
-    closest to the centre of the observable window of ``event``.  This
-    means the grid covers the whole transit even when the observable
-    window only captures part of it.
-
-    Returns
-    -------
-    dict | None
-        ``t_min_from_mid`` (minutes from T_mid), ``bjd_tdb`` (JD_TDB, no
-        light-travel correction, same convention as the existing plot),
-        ``phase``, ``vbary`` (km/s), ``v_planet`` (km/s), ``drv`` (km/s,
-        ≡ v_planet), the circular reference ``drv_circ`` and, under an
-        envelope, its bounds ``drv_lo``/``drv_hi`` (``None`` otherwise);
-        the orbital metadata ``mode``, ``ecc``, ``omega_used``, ``kp_circ``,
-        ``kp_ecc``, ``max_dev_circ``; plus scalar stats ``mean``, ``min``,
-        ``max``, ``span`` and the reference values ``t_mid_bjd_tdb`` and
-        ``t14_h``.  ``min``/``max``/``span`` cover the envelope when there is
-        one, so the overlap band reflects the full uncertainty.
-        ``None`` when inputs are insufficient.
+    [T₁ − pad, T₄ + pad] around the mid-transit that the ephemeris places
+    closest to the centre of the event's window, so that the grid covers the
+    whole transit even when the observable window only captures part of it.
+    Every point counts as observed.
     """
-    t0_bjd = target.get("t0_bjd")
-    period = target.get("period")
-    if (t0_bjd is None or period is None
-            or kp_kms is None or not np.isfinite(kp_kms)
-            or t14_h is None or not np.isfinite(t14_h)):
-        return None
-
-    night = event["_night"]
-    times_utc_night = night["times_utc"]
-    phases_night = np.asarray(night["phases"], dtype=float)
-    in_event = _phase_in_windows(
-        phases_night, event["_windows"].get(event["event_type"], []),
-    )
-    idx = np.where(in_event)[0]
+    times_utc_night = event["_night"]["times_utc"]
+    idx = np.where(_event_window_mask(event))[0]
     if idx.size == 0:
         return None
 
-    # Anchor the transit midpoint to the ephemeris orbit nearest the window.
     t_mid_jd_utc = 0.5 * (times_utc_night[idx[0]].jd
                           + times_utc_night[idx[-1]].jd)
     t_mid_jd_tdb_approx = Time(t_mid_jd_utc, format="jd", scale="utc").tdb.jd
@@ -161,6 +115,101 @@ def compute_planet_telluric_drv(event, observatory, target, vsys_kms, kp_kms,
     t1_bjd = t_mid_bjd - 0.5 * t14_d - pad_d
     t4_bjd = t_mid_bjd + 0.5 * t14_d + pad_d
     grid_bjd = np.arange(t1_bjd, t4_bjd + 0.5 * step_d, step_d)
+    return grid_bjd, t_mid_bjd, np.ones(grid_bjd.size, dtype=bool)
+
+
+# A pre- or post-eclipse window can last days on a long orbit; beyond this
+# many points the grid step grows instead of the cost.
+_MAX_EMISSION_GRID = 5000
+
+
+def _emission_drv_grid(event, t0_bjd, period, pad_min, step_s):
+    """
+    The whole pre- or post-eclipse window of the orbit observed on this
+    night, from quadrature to the contact of the eclipse, padded by
+    ``pad_min``.  The points that fall in the part of the window observable
+    that night are marked as observed: they set the band of the left panel.
+    """
+    windows = event["_windows"].get(event["event_type"], [])
+    if not windows:
+        return None
+    phi_a, phi_b = windows[0]
+
+    night = event["_night"]
+    in_event = _event_window_mask(event)
+    obs_mask = np.asarray(night.get("obs_mask", np.ones(in_event.size)),
+                          dtype=bool)
+    idx = np.where(in_event & obs_mask)[0]
+    if idx.size == 0:
+        idx = np.where(in_event)[0]
+    if idx.size == 0:
+        return None
+
+    bjd_night = np.asarray(night["bjd_tdb"], dtype=float)
+    t_obs_start, t_obs_end = bjd_night[idx[0]], bjd_night[idx[-1]]
+    n_orbit = np.floor((0.5 * (t_obs_start + t_obs_end) - float(t0_bjd))
+                       / float(period))
+    t_a = float(t0_bjd) + (n_orbit + phi_a) * float(period)
+    t_b = float(t0_bjd) + (n_orbit + phi_b) * float(period)
+
+    pad_d = float(pad_min) / (24.0 * 60.0)
+    step_d = max(float(step_s) / 86400.0,
+                 (t_b - t_a + 2.0 * pad_d) / _MAX_EMISSION_GRID)
+    grid_bjd = np.arange(t_a - pad_d, t_b + pad_d + 0.5 * step_d, step_d)
+    observed = (grid_bjd >= t_obs_start) & (grid_bjd <= t_obs_end)
+    return grid_bjd, 0.5 * (t_a + t_b), observed
+
+
+def compute_planet_telluric_drv(event, observatory, target, vsys_kms, kp_kms,
+                                t14_h, pad_min=30.0, step_s=200.0):
+    """
+    Sample the planet–telluric RV difference on a fine time grid with
+    ``step_s`` cadence: [T₁ − pad, T₄ + pad] for a transit, and the whole
+    emission window, quadrature to eclipse contact ± pad, for a pre- or
+    post-eclipse event.
+
+    Tellurics sit at 0 km/s in the Earth frame, so:
+        ΔRV(t) = V_p(t) − 0 = V_sys + V_p,orbit(t) − V_bary(t)
+
+    ``V_p,orbit`` comes from `phase_kepler.orbit_solution`: the circular
+    ``K_p·sin(2π·φ)`` for e below `phase_kepler.ECC_MIN`, the Keplerian trace
+    when e and ω are both known, and the circular trace plus an envelope over
+    all ω when e is known but ω is not.
+
+    Returns
+    -------
+    dict | None
+        ``t_min_from_mid`` (minutes from the transit midpoint, or from the
+        centre of the emission window), ``bjd_tdb`` (JD_TDB), ``phase``,
+        ``observed`` (the grid points observable on this night: all of them
+        for a transit), ``vbary`` (km/s), ``v_planet`` (km/s), ``drv``
+        (km/s, ≡ v_planet), the circular reference ``drv_circ`` and, under an
+        envelope, its bounds ``drv_lo``/``drv_hi`` (``None`` otherwise);
+        the orbital metadata ``mode``, ``ecc``, ``omega_used``, ``kp_circ``,
+        ``kp_ecc``, ``max_dev_circ``; plus scalar stats ``mean``, ``min``,
+        ``max``, ``span`` over the observed points, the reference values
+        ``t_mid_bjd_tdb`` and ``t14_h``, the ``event_type`` and, for an
+        emission event, its ``window_phase``.  ``min``/``max``/``span`` cover
+        the envelope when there is one, so the overlap band reflects the
+        full uncertainty.  ``None`` when inputs are insufficient.
+    """
+    t0_bjd = target.get("t0_bjd")
+    period = target.get("period")
+    if (t0_bjd is None or period is None
+            or kp_kms is None or not np.isfinite(kp_kms)):
+        return None
+
+    event_type = event.get("event_type", "transit")
+    if event_type == "transit":
+        if t14_h is None or not np.isfinite(t14_h):
+            return None
+        grid = _transit_drv_grid(event, t0_bjd, period, t14_h,
+                                 pad_min, step_s)
+    else:
+        grid = _emission_drv_grid(event, t0_bjd, period, pad_min, step_s)
+    if grid is None:
+        return None
+    grid_bjd, t_mid_bjd, observed = grid
 
     # Convert JD_TDB → UTC for the barycentric correction (TDB↔UTC offset
     # only; the ~8 min barycentric light-travel-time term is ignored, in
@@ -200,14 +249,20 @@ def compute_planet_telluric_drv(event, observatory, target, vsys_kms, kp_kms,
     drv_hi = _to_earth_frame(sol["v_hi"]) if sol["v_hi"] is not None else None
 
     # The overlap band on the left panel must show the whole uncertainty, so
-    # under an envelope it spans the envelope rather than the drawn line.
-    lo_arr = drv if drv_lo is None else drv_lo
-    hi_arr = drv if drv_hi is None else drv_hi
+    # under an envelope it spans the envelope rather than the drawn line; it
+    # covers only what can be observed that night.
+    lo_arr = (drv if drv_lo is None else drv_lo)[observed]
+    hi_arr = (drv if drv_hi is None else drv_hi)[observed]
 
+    windows = event["_windows"].get(event_type, [])
     return dict(
         t_min_from_mid=(grid_bjd - t_mid_bjd) * 24.0 * 60.0,
         bjd_tdb=grid_bjd,
         phase=phase,
+        observed=observed,
+        event_type=event_type,
+        window_phase=(tuple(windows[0]) if event_type != "transit" and windows
+                      else None),
         vbary=vbary,
         v_planet=drv,
         drv=drv,
@@ -220,12 +275,13 @@ def compute_planet_telluric_drv(event, observatory, target, vsys_kms, kp_kms,
         kp_circ=sol["kp_circ"],
         kp_ecc=sol["kp_ecc"],
         max_dev_circ=sol["max_dev_circ"],
-        mean=float(np.mean(drv)),
+        mean=float(np.mean(drv[observed])),
         min=float(np.min(lo_arr)),
         max=float(np.max(hi_arr)),
         span=float(np.max(hi_arr) - np.min(lo_arr)),
         t_mid_bjd_tdb=t_mid_bjd,
-        t14_h=float(t14_h),
+        t14_h=float(t14_h) if t14_h is not None else np.nan,
+        ecc_upper_limit=bool(target.get("ecc_upper_limit", False)),
     )
 
 
@@ -276,7 +332,10 @@ def _earth_frame_cc_cached(fits_path, lam_range_nm, rv_grid_kms):
     """
     lar, far = load_telluric_model(fits_path, lam_range_nm[0], lam_range_nm[1])
     rv_start, rv_stop_inclusive, rv_step = rv_grid_kms
-    rv = np.arange(rv_start, rv_stop_inclusive + 0.5 * rv_step, rv_step)
+    # Whole steps from start, never beyond stop: (-50, 50, 1) gives 101
+    # points including 0 and both ends.
+    n_steps = int(np.floor((rv_stop_inclusive - rv_start) / rv_step + 1e-9))
+    rv = rv_start + rv_step * np.arange(n_steps + 1)
 
     spline_spec = InterpolatedUnivariateSpline(lar, far, k=3, ext=0)
     ccor = np.zeros_like(rv)
@@ -288,6 +347,33 @@ def _earth_frame_cc_cached(fits_path, lam_range_nm, rv_grid_kms):
     return rv, ccor, lar, far
 
 
+def _draw_emission_bands(ax2, event_type, drv_info, geom):
+    """
+    Shade, on the phase axis of the right panel, the emission window, the
+    part of it observable on this night, and the eclipse itself whenever the
+    padded grid reaches it.
+    """
+    phi_a, phi_b = drv_info["window_phase"]
+    name = ("Pre-eclipse window" if event_type == "pre_eclipse"
+            else "Post-eclipse window")
+    ax2.axhspan(phi_a, phi_b, color=C_T14, alpha=0.28, zorder=0,
+                label=f"{name} (quadrature → eclipse contact)")
+    observed = drv_info["observed"]
+    if np.any(observed):
+        ph_obs = drv_info["phase"][observed]
+        ax2.axhspan(float(ph_obs.min()), float(ph_obs.max()),
+                    facecolor="none", edgecolor=C_OBSERVED, hatch="///",
+                    lw=0.0, zorder=0, label="Observable this night")
+    phi_sec, half = geom.get("phi_sec"), geom.get("half_ph_sec")
+    if phi_sec is not None and half is not None and np.isfinite(phi_sec) \
+            and np.isfinite(half):
+        lo, hi = phi_sec - half, phi_sec + half
+        ph = drv_info["phase"]
+        if hi > ph.min() and lo < ph.max():
+            ax2.axhspan(lo, hi, color=C_ECLIPSE, alpha=0.5, zorder=0,
+                        label="Eclipse (planet hidden)")
+
+
 def _solution_label(drv_info) -> str:
     """
     Legend text for the adopted orbital solution.
@@ -297,10 +383,18 @@ def _solution_label(drv_info) -> str:
     """
     if drv_info["mode"] == "keplerian":
         return (f"Planet RV, Keplerian (e = {drv_info['ecc']:.3f}, "
-                f"$\\omega_p$ = {drv_info['omega_used']:.0f}$^\\circ$)")
+                f"$\\omega_\\star$ = {_omega_star(drv_info):.0f}$^\\circ$)")
     if drv_info["mode"] == "envelope":
+        if drv_info.get("ecc_upper_limit"):
+            return (f"Planet RV, all $\\omega$ "
+                    f"(upper limit e = {drv_info['ecc']:.3f})")
         return f"Planet RV, all $\\omega$ (e = {drv_info['ecc']:.3f})"
     return "Planet RV, circular"
+
+
+def _omega_star(drv_info) -> float:
+    """The catalogue's omega_star of the adopted solution (it works in omega_p)."""
+    return (drv_info["omega_used"] + 180.0) % 360.0
 
 
 def plot_telluric_position(event, obs, target, vsys_kms, sky_fits_path,
@@ -380,8 +474,13 @@ def plot_telluric_position(event, obs, target, vsys_kms, sky_fits_path,
     # Fine-grained planet–telluric ΔRV grid.  The window and step are named
     # here and reused in every label, so the text cannot drift from the values
     # actually used.
-    win_txt = (f"T$_1$−{drv_pad_min:.0f} min → "
-               f"T$_4$+{drv_pad_min:.0f} min")
+    is_transit = event_type == "transit"
+    if is_transit:
+        win_txt = (f"T$_1$−{drv_pad_min:.0f} min → "
+                   f"T$_4$+{drv_pad_min:.0f} min")
+    else:
+        win_txt = (f"quadrature → eclipse contact, "
+                   f"±{drv_pad_min:.0f} min; band = part observable this night")
     geom = event.get("_geom") or {}
     t14_h = geom.get("t14_h")
     drv_info = compute_planet_telluric_drv(
@@ -475,18 +574,22 @@ def plot_telluric_position(event, obs, target, vsys_kms, sky_fits_path,
         fontsize=13, pad=10,
     )
 
-    # Right subplot: ΔRV(φ) = V_planet − V_telluric across the transit.
-    # X = ΔRV [km/s], Y = orbital phase (unwrapped around the transit so
-    # that values just below φ=1 map onto small negative phases instead of
-    # jumping discontinuously).
+    # Right subplot: ΔRV(φ) = V_planet − V_telluric across the event.
+    # X = ΔRV [km/s], Y = orbital phase: unwrapped around a transit so that
+    # values just below φ=1 map onto small negative phases instead of
+    # jumping discontinuously; plain for an emission window, which never
+    # crosses φ = 0.
     if drv_info is not None:
         drv = drv_info["drv"]
-        phase_plot = np.where(drv_info["phase"] > 0.5,
-                              drv_info["phase"] - 1.0,
-                              drv_info["phase"])
-        period_d = float(target["period"])
-        dphi_t14 = (drv_info["t14_h"] / 24.0) / period_d
-        phi_t1, phi_t4 = -0.5 * dphi_t14, +0.5 * dphi_t14
+        if is_transit:
+            phase_plot = np.where(drv_info["phase"] > 0.5,
+                                  drv_info["phase"] - 1.0,
+                                  drv_info["phase"])
+            period_d = float(target["period"])
+            dphi_t14 = (drv_info["t14_h"] / 24.0) / period_d
+            phi_t1, phi_t4 = -0.5 * dphi_t14, +0.5 * dphi_t14
+        else:
+            phase_plot = drv_info["phase"]
         # Envelope over all omega, drawn first so the traces sit on top.
         if drv_info["drv_lo"] is not None:
             ax2.fill_betweenx(
@@ -510,14 +613,21 @@ def plot_telluric_position(event, obs, target, vsys_kms, sky_fits_path,
                  ls="--" if is_envelope else "-",
                  marker="o", ms=2.6, mfc=trace_colour, mec="none", zorder=3,
                  label=trace_label)
-        ax2.axhspan(phi_t1, phi_t4, color=C_T14, alpha=0.28, zorder=0,
-                    label=r"$T_{14}$ (transit duration)")
-        # Neutral guides: mid-transit and the telluric rest frame.
-        ax2.axhline(0.0, color=C_GUIDE, lw=0.6, ls=":", alpha=0.8)
+        if is_transit:
+            ax2.axhspan(phi_t1, phi_t4, color=C_T14, alpha=0.28, zorder=0,
+                        label=r"$T_{14}$ (transit duration)")
+            # Neutral guide: mid-transit.
+            ax2.axhline(0.0, color=C_GUIDE, lw=0.6, ls=":", alpha=0.8)
+        else:
+            _draw_emission_bands(ax2, event_type, drv_info, geom)
+        # Neutral guide: the telluric rest frame.
         ax2.axvline(0.0, color=C_GUIDE, lw=0.6, ls=":", alpha=0.8)
         ax2.set_xlabel(r"$\Delta$RV planet − telluric [km/s]"
                        "\n(Earth frame, tellurics at 0)")
-        ax2.set_ylabel(r"Phase relative to transit ($\varphi$ = 0 at mid-transit)")
+        ax2.set_ylabel(
+            r"Phase relative to transit ($\varphi$ = 0 at mid-transit)"
+            if is_transit else
+            r"Orbital phase ($\varphi$ = 0 at mid-transit)")
         ax2.set_title(
             r"$\langle\Delta$RV$\rangle$ = "
             f"{drv_info['mean']:+.2f} km/s,  "
@@ -550,9 +660,9 @@ def plot_telluric_position(event, obs, target, vsys_kms, sky_fits_path,
     # approximation would have been off for this target.
     orbit_line = ""
     if drv_info is not None and drv_info["mode"] != "circular":
-        omega_txt = (f"$\\omega_p$ = {drv_info['omega_used']:.1f}$^\\circ$"
+        omega_txt = (f"$\\omega_\\star$ = {_omega_star(drv_info):.1f}$^\\circ$"
                      if drv_info["omega_used"] is not None
-                     else r"$\omega_p$ unknown, envelope over [0,360)$^\circ$")
+                     else r"$\omega$ unknown, envelope over [0,360)$^\circ$")
         orbit_line = SEP.join([
             f"orbit: e = {drv_info['ecc']:.3f}, {omega_txt}",
             f"$K_p$ = {drv_info['kp_circ']:.2f} (circ.) $\\rightarrow$ "
@@ -575,8 +685,10 @@ def plot_telluric_position(event, obs, target, vsys_kms, sky_fits_path,
     # The info block sits below the panels, in wide lines rather than a tall
     # stack: inside the axes it grew to cover the cross-correlation curves it
     # was meant to annotate.
+    vsys_src = target.get("v_sys_source")
     lines = [SEP.join([
-        f"$v_{{\\rm sys}}$ = {vsys_kms:+.3f}",
+        f"$v_{{\\rm sys}}$ = {vsys_kms:+.3f}"
+        + (f" ({vsys_src})" if vsys_src not in (None, "NEA", "user") else ""),
         f"$\\langle v_{{\\rm bary}}\\rangle$ = {vbary_mean:+.3f}",
         f"$v_\\star$ = {vtot:+.3f} km/s (star in Earth frame)",
         f"$n_{{\\rm exp}}$ = {n_exp} ({exp_time_s:.0f}s cadence, "

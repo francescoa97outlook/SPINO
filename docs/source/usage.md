@@ -51,10 +51,17 @@ Preset JSON files use the same `{GLOBAL_NAME: value}` schema as the
 For each scheduled planet, inside `OUTPUT_DIR/<planet>[_TSM][_ESM]/`:
 
 - `<planet>_summary.pdf`: one-page parameter card with TSM/ESM bars,
-- `events_summary.csv`: the per-planet event table,
+- `events_summary.csv`: the per-planet event table, one row per orbit observed
+  on a night; its `geom_flags` column lists every assumption the geometry had
+  to make for that planet, and `moon_illum`, `moon_sep` and `moon_ok` report
+  the Moon rule of the [configuration reference](configuration.md),
 - `calendar_<event>.pdf`: night-by-night calendars (per event type present),
 - `transit.pdf`, `pre_eclipse.pdf`, `post_eclipse.pdf`: one plot page per
-  event (altitude vs. time, plus a telluric-overlap page when enabled).
+  event (altitude vs. time, plus a telluric-overlap page when enabled). For a
+  transit the telluric page covers the whole observing sequence, from 30 min
+  before first contact to 30 min after fourth contact. For a pre- or
+  post-eclipse event it follows the emission window, from quadrature to
+  eclipse contact, and hatches the part observable that night.
 
 At the `OUTPUT_DIR` root: `PR_landscape.pdf` (the period-radius desert map) and
 `preselection.csv`, a table listing the qualifying planets (recent references with

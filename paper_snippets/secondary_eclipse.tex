@@ -1,0 +1,65 @@
+% SPINO paper snippet: secondary eclipse, quadratures, eccentric treatment, event windows.
+% Plain-language rewrite. All equations kept, long ones broken over several lines.
+% Requires amsmath (aligned, split). Labels kept: eq:bocc, eq:t14sec, eq:phaseofnu, eq:phisec, eq:quad, eq:windows.
+
+
+The secondary eclipse, when the planet passes behind the star, is described by three quantities of its own: the impact parameter of the eclipse, and the duration that follows from it, the orbital phase at which mid-eclipse occurs, and the position of the quadratures, which set the outer bounds of the emission windows. \texttt{SPINO} computes each of them from the composed orbital elements.
+
+The first is the impact parameter. Eq.~7 of \citet{winn2010} applies to the eclipse as well, but with the opposite sign in the eccentricity factor,
+
+\begin{equation}\label{eq:bocc}
+b_{\rm occ} = \frac{a}{R_\star}\cos i \; \frac{1 - e^2}{1 - e \sin\omega_\star},
+\end{equation}
+
+so the planet passes behind the star at a different distance from its centre than it passes in front of it, $b_{\rm occ} \ne b$, unless $e \sin\omega_\star = 0$. The duration of the eclipse then follows from the same expression used for the transit, but evaluated with $b_{\rm occ}$ and with the sign of the eccentricity term flipped,
+
+\begin{equation}\label{eq:t14sec}
+T_{14,\rm sec} = \frac{P}{\pi} \arcsin\left[\frac{\sqrt{(1+k)^2 - b_{\rm occ}^2}}{(a/R_\star)\sin i}\right] \frac{\sqrt{1-e^2}}{1 - e\sin\omega_\star} .
+\end{equation}
+
+A system can therefore transit and still never be occulted. When $b_{\rm occ} > 1 + k$ the planet misses the stellar disc on the far side of the orbit; \texttt{SPINO} leaves $T_{14,\rm sec}$ undefined and suppresses both eclipse windows, rather than falling back on the catalogued transit duration, which describes a different event.
+
+The second is the phase at which mid-eclipse occurs. Instead of the first-order expansion in $e$ of \citet{winn2010}, Eq.~33, \texttt{SPINO} solves for it exactly. The phase reached at a given position along the orbit, measured by the true anomaly $\nu$, is
+
+\begin{equation}\label{eq:phaseofnu}
+\begin{aligned}
+\varphi(\nu) &= x - \left\lfloor x \right\rfloor ,
+\qquad x = \varphi_{\rm peri} + \frac{E - e\sin E}{2\pi} , \\[4pt]
+\tan\frac{E}{2} &= \sqrt{\frac{1-e}{1+e}}\;\tan\frac{\nu}{2} ,
+\end{aligned}
+\end{equation}
+
+where $E$ is the eccentric anomaly, $E - e\sin E$ the mean anomaly, and $\varphi_{\rm peri}$ the phase of periastron passage, fixed by requiring that mid-transit falls where it should, at $\nu_{\rm tr} = \pi/2 - \omega_\star$. Subtracting the integer part $\left\lfloor x \right\rfloor$ simply discards the completed orbits and leaves the phase in $[0,1)$. The eclipse then occurs half an orbit away in angle, at $\nu_{\rm occ} = -\pi/2 - \omega_\star$. Light takes a finite time to cross the orbit, and since the planet is further from us at the eclipse than at the transit, the eclipse is seen slightly late by the R\o mer delay,
+
+\begin{equation}\label{eq:phisec}
+\varphi_{\rm sec} = \varphi(\nu_{\rm occ}) + \frac{a}{cP}\left[ \frac{1-e^2}{1 + e\cos\nu_{\rm tr}} + \frac{1-e^2}{1 + e\cos\nu_{\rm occ}} \right] ,
+\end{equation}
+
+which reduces to $2a/cP$ for a circular orbit, or $16.8\,\mathrm{s}$ for LTT\,9779\,b. The first-order expansion is not accurate enough for scheduling: it misplaces the eclipse by $0.0035\,P$ at $e = 0.2$, by $0.0121\,P$ at $e = 0.3$ and by $0.0631\,P$ at $e = 0.5$, the last of which is about $4.5\,\mathrm{h}$ on a three-day orbit.
+
+The third is the position of the quadratures, which set the outer edges of the emission windows. For an eccentric orbit they do not fall at phases $0.25$ and $0.75$:
+
+\begin{equation}\label{eq:quad}
+\varphi_{\rm quad}^{\rm pre} = \varphi(\pi - \omega_\star), \qquad
+\varphi_{\rm quad}^{\rm post} = \varphi(-\omega_\star),
+\end{equation}
+
+recovering exactly $0.25$ and $0.75$ when $e = 0$. Keeping them fixed is not a harmless approximation. At $e = 0.3$ and $\omega_p = 0$ the true quadratures lie at $0.156$ and $0.656$, with mid-eclipse at $\varphi_{\rm sec} = 0.312$, so a lower bound fixed at $0.25$ would empty the pre-eclipse window completely while leaving a post-eclipse window $0.44$ wide in phase.
+
+Whether the eccentric treatment is applied at all is decided on a tolerance in time, not on a bare cut in eccentricity. \texttt{SPINO} computes the largest displacement of the eclipse that the reported eccentricity could produce, taken over all values of $\omega$ and reached at $\omega_\star = 0$, and compares it with $60\,\mathrm{s}$; below that the orbit is treated as circular. A fixed threshold such as $e < 0.01$ would not be safe, since an eccentricity of $0.01$ already shifts the eclipse by $27\,\mathrm{min}$ on a three-day orbit. When the displacement does matter but $\omega$ is not available, both eclipse windows are suppressed rather than built on an assumed $\omega_p = 0$, which at $e = 0.3$ could misplace the eclipse by up to $0.19$ in phase. Across the 4819 planets of the archive snapshot, this treats 2856 as circular for want of a reported eccentricity, gives 959 the full eccentric treatment, suppresses the eclipse windows of 391 ($8.1\,\%$) for an unknown $\omega$, and finds one system that transits without ever being occulted.
+
+Other missing parameters fall back on stated defaults rather than causing the computation to fail. A missing eccentricity gives $e = 0$; a missing argument of periastron gives $\omega_p = 0$ \emph{for the transit branch only}, with a warning raised when $e \ge 0.01$; a missing inclination gives $b = 0$ and $i = 90^\circ$; a missing planetary radius gives $k = 0.01$; if $a$ or $R_\star$ are unavailable the catalogue transit duration is used instead, and failing that a placeholder duration of $2\,\mathrm{h}$ is adopted with $T_{23} = 0.8\,T_{14}$. If the composed geometry does not transit at all, $T_{14}$ is deliberately left undefined, so that the corresponding window comes out empty instead of spuriously matching every night. Each of these assumptions is recorded in the \texttt{geom\_flags} field described in Section~\ref{sec:outputs}, so that it travels with the data instead of remaining buried in a log.
+
+The event windows in orbital phase are then
+
+\begin{equation}\label{eq:windows}
+\begin{aligned}
+W_{\rm tr}   &= \left[1 - \tfrac{T_{14}}{2P},\,1\right) \cup \left[0,\,\tfrac{T_{14}}{2P}\right] , \\
+W_{\rm pre}  &= \left[\varphi_{\rm quad}^{\rm pre},\; \varphi_{\rm sec} - \tfrac{T_{14,\rm sec}}{2P}\right] , \\
+W_{\rm post} &= \left[\varphi_{\rm sec} + \tfrac{T_{14,\rm sec}}{2P},\; \varphi_{\rm quad}^{\rm post}\right] .
+\end{aligned}
+\end{equation}
+
+The pre- and post-eclipse windows run all the way from quadrature to the edge of the eclipse, since that is the phase range over which the dayside of the planet is visible and its signal accessible to high-resolution observations. They are not a narrow baseline placed around the eclipse. An event is accepted for a given night when the fraction of its phase window that falls inside the observable phase intervals of that night, which we call the coverage, reaches a threshold, by default $1.0$ for transits and $0.5$ for the pre- and post-eclipse windows. No out-of-transit baseline is required on top of that.
+
+LTT\,9779\,b, one of the validation targets of Section~\ref{sec:valemission}, shows what the three corrections are worth together on a real system. Its eccentricity, $e = 0.058$, and its argument of periastron, $\omega_p = 90^\circ$, come from two references distinct from the one supplying the ephemeris, through the field-by-field composition of Section~\ref{sec:cat}. With $a/R_\star = 3.81$ and $k = 0.046$ the transit is nearly grazing, $b = 0.947$, which amplifies everything downstream: the eclipse impact parameter drops to $b_{\rm occ} = 0.843$, and the eclipse duration moves from the $0.685\,\mathrm{h}$ that the transit impact parameter would give to $0.959\,\mathrm{h}$, a difference of $39\,\%$.

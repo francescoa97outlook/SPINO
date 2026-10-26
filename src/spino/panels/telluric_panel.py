@@ -38,7 +38,7 @@ class TelluricPanel:
                                          to_float(self._lam1.get_value(), 0.0)],
             "TELLURIC_RV_GRID_KMS": [to_float(self._rv0.get_value(), -50.0),
                                      to_float(self._rv1.get_value(), 50.0),
-                                     to_float(self._rv2.get_value(), 1.5)],
+                                     to_float(self._rv2.get_value(), 1.0)],
             "TELLURIC_PAD_HOURS": to_float(self._pad.get_value(), 1.0),
             "TELLURIC_EXP_TIME_S": to_float(self._exp.get_value(), 300.0),
         }

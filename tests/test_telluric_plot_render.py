@@ -24,7 +24,7 @@ SKY_FITS = (Path(__file__).resolve().parents[1]
             / "src" / "spino" / "data" / "sky_transmission.fits")
 
 LAM_RANGE_NM = (2359.0, 2426.0)
-RV_GRID_KMS = (-50.0, 50.0, 1.5)
+RV_GRID_KMS = (-50.0, 50.0, 1.0)
 
 
 @pytest.fixture(autouse=True)
@@ -411,3 +411,19 @@ class TestEccentricUnknownOmega:
 
         body = texts(fig).lower()
         assert "unknown" in body or "envelope" in body
+
+
+class TestRadialVelocityGrid:
+
+    def test_default_grid_runs_from_minus_to_plus_50_in_steps_of_1(self):
+        rv, *_ = tp._earth_frame_cc_cached(
+            str(SKY_FITS), LAM_RANGE_NM, (-50.0, 50.0, 1.0))
+        assert rv.size == 101
+        assert rv[0] == -50.0 and rv[-1] == 50.0
+        assert 0.0 in rv
+
+    def test_a_step_that_does_not_divide_the_span_stops_short_of_stop(self):
+        rv, *_ = tp._earth_frame_cc_cached(
+            str(SKY_FITS), LAM_RANGE_NM, (-50.0, 50.0, 1.5))
+        assert rv[-1] <= 50.0
+        assert rv[-1] == pytest.approx(49.0)

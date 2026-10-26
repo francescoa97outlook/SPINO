@@ -70,6 +70,22 @@ def _phase_in_windows(phases, windows_list):
     return mask
 
 
+def _event_window_mask(event):
+    """
+    Night samples inside the phase window of this event, observable or not,
+    restricted to the event's own orbit (``_span``, set by match_events) so
+    that a second orbit on the same night is not drawn as part of it.
+    """
+    phases = np.asarray(event["_night"]["phases"], dtype=float)
+    mask = _phase_in_windows(
+        phases, event["_windows"].get(event["event_type"], []))
+    span = event.get("_span")
+    if span is not None:
+        idx = np.arange(mask.size)
+        mask &= (idx >= span[0]) & (idx <= span[1])
+    return mask
+
+
 # ================================================================== #
 #  1. INDIVIDUAL EVENT PLOT                                           #
 # ================================================================== #
@@ -96,7 +112,6 @@ def plot_event(event, obs, output_path=None, pdf=None):
     night = event["_night"]
     geom = event["_geom"]
     target = event["_target"]
-    windows = event["_windows"]
     event_type = event["event_type"]
     from phase_config import CONSTRAINTS
     min_alt = CONSTRAINTS['min_target_alt']
@@ -110,12 +125,10 @@ def plot_event(event, obs, output_path=None, pdf=None):
     target_alt = np.array(night["target_alt"], dtype=float)
     sun_alt = np.array(night["sun_alt"], dtype=float)
     moon_alt = np.array(night["moon_alt"], dtype=float)
-    phases = np.array(night["phases"], dtype=float)
     obs_mask = np.array(night["obs_mask"], dtype=bool)
 
-    # Event window for this event type
-    evt_intervals = windows.get(event_type, [])
-    in_event = obs_mask & _phase_in_windows(phases, evt_intervals)
+    # Event window of this event's orbit
+    in_event = obs_mask & _event_window_mask(event)
 
     # --- Figure ---
     fig, ax = plt.subplots(figsize=(12, 7), facecolor='#1a1a1a')
@@ -204,9 +217,12 @@ def plot_event(event, obs, output_path=None, pdf=None):
 
     # Footer info
     cov_pct = event["coverage"] * 100
+    if CONSTRAINTS.get('moon_dist_factor', 0.0) > 0:
+        moon_rule = 'OK' if night['moon_ok'] else 'TOO CLOSE'
+    else:
+        moon_rule = 'rule off'
     moon_info = (f"Moon illum: {night['moon_illum']:.0%}  "
-                 f"sep: {night['moon_sep']:.1f}°  "
-                 f"{'OK' if night['moon_ok'] else 'TOO CLOSE'}")
+                 f"sep: {night['moon_sep']:.1f}°  {moon_rule}")
     footer = (f"Coverage: {cov_pct:.0f}%  |  "
               f"P = {target['period']:.6f} d  |  "
               f"T14 = {geom['t14_h']:.2f} h  |  {moon_info}")

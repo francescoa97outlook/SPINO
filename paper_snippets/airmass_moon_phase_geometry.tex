@@ -1,0 +1,40 @@
+% SPINO paper snippet: airmass, Moon, orbital phase, transit geometry. Plain-language version.
+% Replaces the three paragraphs following the observability criterion of Eq. eq:obs.
+% Labels kept: eq:b, eq:t14. References kept: kasten1989, winn2010.
+
+
+% =========================== VERSION A (full) ==============================
+
+The criterion of Eq.~\ref{eq:obs} uses only two quantities, the height of the target and the height of the Sun. No airmass limit, no limit on how far the target is from the meridian, and no condition on the Moon take part in the decision. Airmass is still shown to the user as a second axis on the night plots, where it is computed from the altitude $h$ through the simple relation $X = 1 / \sin h$. This expression is accurate enough above $20^\circ$ of altitude, which is the regime of interest here, and it differs from the more elaborate formula of \citet{kasten1989} only close to the horizon.
+
+The Moon is treated separately and never rejects an event. For each night \texttt{SPINO} measures, at the middle of the night, the angular distance between the Moon and the target and the fraction of the lunar disc that is illuminated, $k = (1 - \cos\psi)/2$, where $\psi$ is the angle between the Moon and the Sun as seen from the site. A simple rule can then ask the distance to exceed $f\,k \times 100^\circ$, so that a bright Moon is kept further away than a faint one. The factor $f$ is set by the user and its default value of $0$ switches the rule off. Even when the rule is active, its result is only reported alongside the plot, so that the observer can judge the sky brightness, and it never removes a transit from the schedule.
+
+Orbital phase is computed on a proper barycentric time axis. Each observing time is converted from UTC to barycentric dynamical time and corrected for the time the light takes to cross the Solar System, $\mathrm{BJD_{TDB}} = \mathrm{JD_{UTC}} + \Delta_{\rm TDB} + \Delta_{\rm LTT}$, with the light-travel correction $\Delta_{\rm LTT}$ provided by \texttt{Astropy}. This is the same time standard in which published ephemerides are expressed, so the phase follows directly from the number of orbits elapsed since $T_0$, of which only the fractional part is retained,
+
+\begin{equation}\label{eq:phase}
+\varphi = \frac{\mathrm{BJD_{TDB}} - T_0}{P} - \left\lfloor \frac{\mathrm{BJD_{TDB}} - T_0}{P} \right\rfloor ,
+\end{equation}
+
+where $\left\lfloor \; \right\rfloor$ denotes the integer part, so that $\varphi = 0$ at mid-transit and $\varphi$ runs over $[0,1)$ along the orbit.
+
+The geometry of the transit follows \citet{winn2010}. One convention deserves a note: the catalogue field \texttt{pl\_orblper} gives the argument of periastron of the planet, whereas the formulas below are written for that of the star, so \texttt{SPINO} applies $\omega_\star = \omega_{\rm p} + 180^\circ$. Writing $a/R_\star$ for the scaled orbital distance and $k = R_p/R_\star$ for the planet-to-star radius ratio, the impact parameter, that is how far from the centre of the stellar disc the planet passes, is
+
+\begin{equation}\label{eq:b}
+b = \frac{a}{R_\star}\cos i \; \frac{1 - e^2}{1 + e \sin\omega_\star},
+\end{equation}
+
+and the total duration of the transit, from first to last contact, is
+
+\begin{equation}\label{eq:t14}
+T_{14} = \frac{P}{\pi} \arcsin\left[\frac{\sqrt{(1+k)^2 - b^2}}{(a/R_\star)\sin i}\right] \frac{\sqrt{1-e^2}}{1 + e\sin\omega_\star} .
+\end{equation}
+
+The duration of the flat part of the transit, $T_{23}$, is given by the same expression with $(1+k)^2$ replaced by $(1-k)^2$, and the duration of ingress or egress follows as $T_{12} = (T_{14}-T_{23})/2$. When the planet only grazes the stellar disc, that is when $(1-k)^2 \le b^2$, there is no flat part and $T_{23} = 0$. Eqs.~\ref{eq:b} and \ref{eq:t14} are Eq.~7 and Eqs.~14 to 16 of \citet{winn2010}, taken in their transit form, and describe the primary transit only.
+
+
+% ========================= VERSION B (shorter) =============================
+% Same content, first three paragraphs condensed to two. The equations are unchanged and are not repeated here.
+
+% The criterion of Eq.~\ref{eq:obs} uses only the height of the target and the height of the Sun: no airmass limit, no limit on the distance from the meridian, and no lunar condition take part in the decision. Airmass is shown to the user as a second axis on the night plots, computed from the altitude $h$ as $X = 1/\sin h$, which is accurate enough above $20^\circ$ and departs from the formula of \citet{kasten1989} only near the horizon.
+%
+% The Moon is treated separately and never rejects an event. At the middle of each night \texttt{SPINO} measures the angular distance between the Moon and the target and the illuminated fraction of the lunar disc, $k = (1 - \cos\psi)/2$, where $\psi$ is the Moon-Sun angle seen from the site; an optional rule asks the distance to exceed $f\,k \times 100^\circ$, so that a bright Moon is kept further away than a faint one. The default $f = 0$ switches the rule off, and its result is in any case only reported next to the plot as an indication of sky brightness.

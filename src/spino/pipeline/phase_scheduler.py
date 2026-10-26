@@ -43,6 +43,8 @@ warnings.filterwarnings(
 
 from phase_config import CUSTOM_PLANETS
 import phase_kepler
+from nea_fetch import limit_flag
+from phase_stellar_rv import resolve_systemic_velocity
 
 # Targets already warned about a given geometry caveat (missing omega,
 # non-transiting composite geometry, silent trandur fallback, ...), so each
@@ -289,9 +291,8 @@ _EPHEMERIS_FIELDS = (
 _OTHER_FIELDS = (
     "ra", "dec",
     "pl_orbsmax", "pl_orbsmaxerr1", "pl_orbsmaxerr2",
-    "pl_orbeccen", "pl_orblper", "pl_orbincl", "pl_imppar",
+    "pl_orbincl", "pl_imppar",
     "pl_rade", "pl_radeerr1", "pl_radeerr2",
-    "pl_bmasse", "pl_bmasseerr1", "pl_bmasseerr2",
     "pl_masse", "pl_msinie", "pl_dens", "pl_insol",
     "pl_eqt", "pl_trandur", "pl_rvamp",
     "st_teff", "st_rad", "st_mass", "st_met",
@@ -303,6 +304,73 @@ _IDENTITY_FIELDS = (
     "pl_controv_flag", "default_flag", "discoverymethod",
     "disc_year", "disc_telescope", "disc_facility",
 )
+
+
+_MASS_FIELDS = ("pl_bmasse", "pl_bmasseerr1", "pl_bmasseerr2")
+
+
+def _compose_orbit_shape(group, composite, sources):
+    """
+    Eccentricity and argument of periastron are fitted together, so both come
+    from one reference: the most recent that reports an eccentricity, as a
+    measurement or as an upper limit (``pl_orbeccenlim`` = 1, kept in the
+    composite so that the geometry can decide what to do with it).  A lower
+    limit says too little about the orbit to be used and is skipped.  The
+    donor's omega is adopted only if that same reference reports it as a
+    value; omega is never borrowed from a different solution.
+
+    ``group`` must already be sorted by publication date, newest first.
+    """
+    composite["pl_orbeccen"] = np.nan
+    composite["pl_orbeccenlim"] = 0
+    composite["pl_orblper"] = np.nan
+    if "pl_orbeccen" not in group.columns:
+        return
+
+    for _, cand in group[group["pl_orbeccen"].notna()].iterrows():
+        lim = limit_flag(cand.get("pl_orbeccenlim"))
+        if lim not in (0, 1):
+            continue
+        ref = cand.get("pl_refname", "")
+        composite["pl_orbeccen"] = cand["pl_orbeccen"]
+        composite["pl_orbeccenlim"] = lim
+        sources["pl_orbeccen"] = ref
+        omega = cand.get("pl_orblper", np.nan)
+        if pd.notna(omega) and limit_flag(cand.get("pl_orblperlim")) == 0:
+            composite["pl_orblper"] = omega
+            sources["pl_orblper"] = ref
+        return
+
+
+def _compose_mass(group, composite, sources):
+    """
+    A measured planetary mass is preferred to a more recent limit.  An upper
+    limit is used only when no reference measures the mass, and is flagged
+    (``pl_bmasselim`` = 1) so that the summary card can mark the mass and the
+    metrics computed from it.  Lower limits are not used.
+    """
+    for f in _MASS_FIELDS:
+        composite[f] = np.nan
+    composite["pl_bmasselim"] = 0
+    if "pl_bmasse" not in group.columns:
+        return
+
+    cands = group[group["pl_bmasse"].notna()]
+    if "pl_bmasselim" in cands.columns:
+        flags = cands["pl_bmasselim"].map(limit_flag)
+    else:
+        flags = pd.Series(0, index=cands.index)
+    for wanted in (0, 1):
+        pick = cands[flags == wanted]
+        if pick.empty:
+            continue
+        donor = pick.iloc[0]
+        for f in _MASS_FIELDS:
+            if f in donor.index:
+                composite[f] = donor[f]
+        composite["pl_bmasselim"] = wanted
+        sources["pl_bmasse"] = donor.get("pl_refname", "")
+        return
 
 
 def _ephemeris_score(row):
@@ -336,7 +404,11 @@ def compose_best_rows(df):
         by pl_pubdate desc.  Mimics NEA TransitView's "most precise
         ephemeris" rule.
       - All other fields: per-field, the most recent (pl_pubdate desc)
-        non-null value across this planet's rows.
+        non-null value across this planet's rows, with two exceptions:
+        eccentricity and argument of periastron come together from one
+        reference (`_compose_orbit_shape`), and the planetary mass prefers
+        a measurement to a limit (`_compose_mass`).  The NEA limit flags of
+        both travel with them as ``pl_orbeccenlim`` / ``pl_bmasselim``.
       - Identity fields are inherited from the chosen ephemeris row.
 
     The returned DataFrame carries an extra column ``_field_sources``
@@ -406,6 +478,9 @@ def compose_best_rows(df):
             composite[f] = donor[f]
             sources[f] = donor.get("pl_refname", "")
 
+        _compose_orbit_shape(group, composite, sources)
+        _compose_mass(group, composite, sources)
+
         if _reconcile_orbsmax(composite, sources, group):
             n_orbsmax_reconciled += 1
 
@@ -427,9 +502,21 @@ def compose_best_rows(df):
 # ================================================================== #
 #  3.5  TIME-SCALE NORMALIZATION                                      #
 # ================================================================== #
-_KNOWN_BJD_TDB    = {"BJDTDB", "BJD"}            # already barycentric-TDB
+# Tokens as returned by _normalize_time_system (upper case, alphanumerics).
+_KNOWN_BJD_TDB    = {"BJDTDB", "BJD",            # already barycentric-TDB;
+                     "BJDTT", "BJDTBD"}          # TT is within 2 ms of TDB,
+                                                 # TBD is a typo for TDB
+_KNOWN_BJD_UTC    = {"BJDUTC", "UTCBJD"}         # barycentric, UTC scale
+_KNOWN_BJD_TCB    = {"BJDTCB"}                   # barycentric, TCB scale
 _KNOWN_HJD        = {"HJD", "HJDUTC"}            # heliocentric (UTC)
-_KNOWN_JD_UTC     = {"JD", "JDUTC"}              # geocentric UTC
+_KNOWN_HJD_TDB    = {"HJDTDB"}                   # heliocentric (TDB)
+_KNOWN_JD_UTC     = {"JDUTC"}                    # geocentric UTC
+# A bare "JD" labels many archive epochs that are already BJD_TDB.  On the
+# 55 planets of the bundled snapshot that also have a precise BJD-TDB row,
+# the JD-labelled epochs agree with it as published (median 0.3 min) and
+# disagree once read as geocentric UTC (median 2.6 min), so they are taken
+# as BJD_TDB.  Only an explicit "JD_UTC" is converted.
+_JD_AS_BJD_TDB    = {"JD"}
 
 
 def _normalize_time_system(systemref):
@@ -447,6 +534,12 @@ def _normalize_time_system(systemref):
 _warned_unknown_tsys = set()
 
 
+def _note_tsys_once(key, msg):
+    if key not in _warned_unknown_tsys:
+        _warned_unknown_tsys.add(key)
+        print(f"  [to_bjd_tdb] {msg}")
+
+
 def to_bjd_tdb(t0_value, system_ref, ra_deg, dec_deg):
     """
     Convert ``t0_value`` (Julian Date in the time system named by
@@ -454,10 +547,15 @@ def to_bjd_tdb(t0_value, system_ref, ra_deg, dec_deg):
 
     Recognized values (NEA convention, matched case-insensitive after
     stripping non-alphanumerics):
-      - BJD_TDB / BJD-TDB / BJD : returned unchanged
+      - BJD_TDB / BJD-TDB / BJD / BJD-TT / BJD-TBD : returned unchanged
+      - JD                      : returned unchanged (see _JD_AS_BJD_TDB)
+      - BJD_UTC / UTC-BJD       : add TDB-UTC
+      - BJD_TCB                 : TCB → TDB
       - HJD / HJD_UTC           : add (BJD-HJD) using astropy
-                                  light_travel_time barycentric/heliocentric
-      - JD_UTC / JD             : add (BJD-JD) ≈ (TDB-UTC) + barycentric ltt
+                                  light_travel_time barycentric/heliocentric,
+                                  and TDB-UTC
+      - HJD_TDB                 : add (BJD-HJD) only
+      - JD_UTC                  : add (BJD-JD) ≈ (TDB-UTC) + barycentric ltt
 
     Missing/unknown system refs are treated as BJD_TDB with a one-time
     warning per token, and the value is returned unchanged.
@@ -466,14 +564,20 @@ def to_bjd_tdb(t0_value, system_ref, ra_deg, dec_deg):
         return t0_value
 
     tok = _normalize_time_system(system_ref)
-    if tok is None or tok in _KNOWN_BJD_TDB:
-        if tok is None:
-            key = "<missing>"
-            if key not in _warned_unknown_tsys:
-                _warned_unknown_tsys.add(key)
-                print("  [to_bjd_tdb] pl_tsystemref missing; "
-                      "assuming BJD_TDB (no conversion).")
+    if tok is None:
+        _note_tsys_once("<missing>", "pl_tsystemref missing; "
+                        "assuming BJD_TDB (no conversion).")
         return float(t0_value)
+    if tok in _KNOWN_BJD_TDB:
+        return float(t0_value)
+    if tok in _JD_AS_BJD_TDB:
+        _note_tsys_once(tok, "pl_tsystemref='JD' read as BJD_TDB "
+                        "(no conversion); only 'JD_UTC' is converted.")
+        return float(t0_value)
+    if tok in _KNOWN_BJD_UTC:
+        return Time(float(t0_value), format="jd", scale="utc").tdb.jd
+    if tok in _KNOWN_BJD_TCB:
+        return Time(float(t0_value), format="jd", scale="tcb").tdb.jd
 
     # The original observation could be at any observatory on Earth.
     # Using the geocenter introduces ≤21 ms error vs. a real observatory,
@@ -492,39 +596,47 @@ def to_bjd_tdb(t0_value, system_ref, ra_deg, dec_deg):
                            .tdb.jd)
         return observer_tdb_jd + ltt_bary
 
+    if tok in _KNOWN_HJD_TDB:
+        # Already on the TDB scale: only the heliocentric → barycentric step.
+        ltt_bary  = t.light_travel_time(tgt, kind="barycentric").jd
+        ltt_helio = t.light_travel_time(tgt, kind="heliocentric").jd
+        return float(t0_value) - ltt_helio + ltt_bary
+
     if tok in _KNOWN_JD_UTC:
         # JD_UTC at observer → BJD_TDB.
         ltt_bary = t.light_travel_time(tgt, kind="barycentric").jd
         return t.tdb.jd + ltt_bary
 
-    if tok not in _warned_unknown_tsys:
-        _warned_unknown_tsys.add(tok)
-        print(f"  [to_bjd_tdb] unknown pl_tsystemref={tok!r}; "
-              "assuming BJD_TDB (no conversion).")
+    _note_tsys_once(tok, f"unknown pl_tsystemref={tok!r}; "
+                    "assuming BJD_TDB (no conversion).")
     return float(t0_value)
 
 
 # ================================================================== #
 #  4. TRANSIT GEOMETRY: Winn (2010)                                  #
 # ================================================================== #
-def compute_transit_geometry(row):
+def compute_transit_geometry(row, ecc_upper_limits_as_values=False):
     """
     Compute primary transit and secondary eclipse geometry.
 
     Uses Winn (2010) arXiv:1001.2010:
       Eq. 14-15 for T14/T23, Eq. 16 for the eccentricity duration
-      correction (Eq. 7 for the occultation impact parameter b_occ).  The
+      correction (Eq. 8 for the occultation impact parameter b_occ).  The
       secondary-eclipse phase and quadratures are solved exactly through
       Kepler's equation (phase_kepler.secondary_eclipse_phase /
       quadrature_phases) instead of Winn's Eq. 33, which is first order in
       e and can be off by hours of phase at moderate eccentricity.
 
-    Omega convention: NEA pl_orblper = omega_planet.
-    Winn uses omega_star = omega_planet + 180 deg.
+    Omega convention: NEA pl_orblper is stored as published, which for the
+    radial-velocity solutions it comes from is omega_star, the argument of
+    periastron of the star's reflex orbit; the transit falls at true anomaly
+    pi/2 - omega_star (Winn 2010, Eq. 6), as the NEA Transit Service also
+    assumes.  phase_kepler works with the planet's omega_p = omega_star + 180.
 
-    Primary-transit geometry (T14, T23, half_ph, ecc_prim, b) keeps its
-    existing e/omega treatment untouched; only the secondary-eclipse side
-    below is new.
+    An eccentricity that the catalogue gives only as an upper limit
+    (``pl_orbeccenlim`` = 1) is treated as circular unless
+    ``ecc_upper_limits_as_values`` is set, in which case the limit is used as
+    the eccentricity; it is flagged ``ecc_upper_limit`` either way.
     """
     P = row["pl_orbper"]                             # days
     pname = row.get("pl_name", "?")
@@ -540,9 +652,12 @@ def compute_transit_geometry(row):
     ecc_raw = row.get("pl_orbeccen", np.nan)
     ecc_missing = pd.isna(ecc_raw)
     ecc = 0.0 if (ecc_missing or ecc_raw < 0) else ecc_raw
-    omega_planet_raw = row.get("pl_orblper", np.nan)
-    omega_known = pd.notna(omega_planet_raw)
-    omega_planet = omega_planet_raw
+    if not ecc_missing and limit_flag(row.get("pl_orbeccenlim")) == 1:
+        geom_flags.append("ecc_upper_limit")
+        if not ecc_upper_limits_as_values:
+            ecc = 0.0
+    omega_star_raw = row.get("pl_orblper", np.nan)
+    omega_known = pd.notna(omega_star_raw)
     if not omega_known:
         # T14 depends on omega for an eccentric orbit, so falling back to 0 deg
         # is an assumption, not a neutral default.  Say so rather than let it
@@ -559,15 +674,19 @@ def compute_transit_geometry(row):
                     f"unavailable; transit duration T14 assumes "
                     f"omega_p = 0 deg and is unreliable",
                 )
-        omega_planet = 0.0
-    omega_star = omega_planet + 180.0                # Winn convention
+        # omega_p = 0, i.e. omega_star = 180: e*sin(omega_star) = 0, so the
+        # assumed angle leaves b and T14 at their e-averaged values.
+        omega_star = 180.0
+    else:
+        omega_star = float(omega_star_raw)
+    omega_planet = omega_star + 180.0                # phase_kepler convention
     omega_rad = np.radians(omega_star)
 
     # --- secondary eclipse phase & quadratures (exact Kepler) ---
     # The circular/eccentric split is a time tolerance, not a bare
     # eccentricity cut (see _ECC_TIMING_TOL_D above).  When the shift
-    # matters and omega is unknown, no eclipse time can be trusted -- an
-    # assumed omega_p = 0 can displace it by a fifth of the orbit -- so
+    # matters and omega is unknown, no eclipse time can be trusted -- any
+    # assumed omega can displace it by up to (4/pi)*e in phase -- so
     # both eclipse windows are suppressed (phi_sec = NaN) instead of being
     # built on a guess.  This only concerns the eclipse; the transit branch
     # below keeps its own omega_p = 0 assumption and warning untouched.
@@ -603,11 +722,17 @@ def compute_transit_geometry(row):
     st_mass = row.get("st_mass", np.nan)              # M_Sun
 
     # --- semi-major axis ---
+    # compose_best_rows already rebuilds a missing or inconsistent a from
+    # Kepler's 3rd law and names that as its donor; flag both routes.
     a_AU = row.get("pl_orbsmax", np.nan)
+    field_sources = row.get("_field_sources")
     if pd.isna(a_AU):
         a_AU = _a_from_kepler(P, st_mass)
         if pd.notna(a_AU):
             geom_flags.append("a_from_kepler")
+    elif (isinstance(field_sources, dict)
+          and field_sources.get("pl_orbsmax") == "Kepler's 3rd law"):
+        geom_flags.append("a_from_kepler")
 
     # --- light-travel delay across the orbit (Roemer delay) ---
     # Only needs a_AU, not the stellar radius, so it applies even on the
@@ -663,6 +788,8 @@ def compute_transit_geometry(row):
     k = 0.01                                          # default Rp/R*
     if pd.notna(pl_rade) and pl_rade > 0:
         k = pl_rade * _R_EARTH_RSUN / st_rad
+    else:
+        geom_flags.append("k_assumed")
 
     # --- impact parameter ---
     incl = row.get("pl_orbincl", np.nan)
@@ -670,6 +797,7 @@ def compute_transit_geometry(row):
         b = 0.0
         cos_i = 0.0                                   # incl := 90 deg below
         incl = 90.0
+        geom_flags.append("incl_assumed_90")
     else:
         cos_i = np.cos(np.radians(incl))
         if ecc > 0:
@@ -690,11 +818,10 @@ def compute_transit_geometry(row):
     ecc_prim = sqrt_1me2 / (1.0 + ecc * np.sin(omega_rad))
     ecc_sec = sqrt_1me2 / (1.0 - ecc * np.sin(omega_rad))
 
-    # --- occultation impact parameter (Winn 2010 Eq. 7, occultation sign) ---
+    # --- occultation impact parameter (Winn 2010 Eq. 8) ---
     # Distinct from the transit's `b` above whenever e*sin(omega_star) != 0;
-    # reusing the transit `b` here (as the previous code did) is exactly the
-    # LTT 9779 b bug: b_tra = 0.947 vs b_occ = 0.847, a 39% error in
-    # t14_sec for a near-grazing system.
+    # reusing the transit `b` here misjudges t14_sec, by tens of per cent
+    # for a near-grazing system.
     if ecc > 0:
         b_occ = a_Rs * cos_i * (1.0 - ecc ** 2) / (1.0 - ecc * np.sin(omega_rad))
     else:
@@ -788,8 +915,9 @@ def compute_transit_geometry(row):
         geom_flags.append("nonocculting")
     else:
         if (1.0 - k) ** 2 - b_occ ** 2 <= 0:
-            # Grazing occultation: the sqrt() just above is numerically
-            # unstable here -- exactly LTT 9779 b's regime -- so flag
+            # Grazing occultation: Winn's (2010) duration expressions assume
+            # a chord centred on conjunction and crossed at constant speed,
+            # which degrades for grazing, close-in eccentric orbits, so flag
             # t14_sec as approximate rather than pretend it is exact.
             geom_flags.append("b_occ_grazing")
         arg_sec = np.sqrt((1.0 + k) ** 2 - b_occ ** 2) / (a_Rs * sin_i)
@@ -819,6 +947,53 @@ def compute_transit_geometry(row):
 # ================================================================== #
 #  5. EVENT PHASE WINDOWS                                             #
 # ================================================================== #
+def rv_orbit_shape(row, ecc_upper_limits_as_values=False):
+    """
+    ``(ecc, omega_p_deg)`` for the radial-velocity model of phase_kepler,
+    which works with the planet's argument of periastron: the catalogue gives
+    omega_star, so omega_p = omega_star + 180 deg.  ``None`` marks a value
+    that is not available and lets ``phase_kepler.orbit_solution`` pick its
+    branch (circular, or the envelope over every omega).
+
+    An eccentricity known only as an upper limit counts as circular unless
+    ``ecc_upper_limits_as_values`` is set.
+    """
+    ecc = row.get("pl_orbeccen")
+    if pd.isna(ecc):
+        return None, None
+    if (limit_flag(row.get("pl_orbeccenlim")) == 1
+            and not ecc_upper_limits_as_values):
+        return None, None
+    omega_star = row.get("pl_orblper")
+    omega_p = ((float(omega_star) + 180.0) % 360.0
+               if pd.notna(omega_star) else None)
+    return float(ecc), omega_p
+
+
+# Value fields whose NEA limit flag must be cleared when a CUSTOM_PLANETS
+# entry overrides them: what the user types is a value, not a limit.
+_LIMIT_FLAG_OF = {"pl_orbeccen": "pl_orbeccenlim", "pl_bmasse": "pl_bmasselim"}
+_CUSTOM_MAG_MAP = {"st_jmag": "sy_jmag", "st_kmag": "sy_kmag"}
+
+
+def merge_custom_planet(base, custom):
+    """
+    A CUSTOM_PLANETS entry overlaid on its catalogue row (``base``, a dict,
+    or None for a target that is not in the filtered catalogue).  Every
+    field the entry sets wins; the custom magnitudes are renamed to
+    catalogue columns.  A mid-transit time typed by the user is BJD_TDB, so
+    it does not inherit the time system of the catalogue row it replaces.
+    """
+    override = {_CUSTOM_MAG_MAP.get(k, k): v for k, v in custom.items()}
+    row = {**base, **override} if base is not None else dict(override)
+    for field, flag in _LIMIT_FLAG_OF.items():
+        if field in override:
+            row[flag] = 0
+    if "pl_tranmid" in override and "pl_tsystemref" not in override:
+        row["pl_tsystemref"] = "BJD-TDB"
+    return row
+
+
 def compute_event_windows(geom):
     """
     Phase windows for transit, pre-eclipse, post-eclipse.
@@ -989,70 +1164,65 @@ def _interval_width(intervals):
     return sum(e - s for s, e in intervals)
 
 
-def _interval_intersection_width(intervals_a, intervals_b):
-    """Total intersection width between two sets of [start, end) intervals."""
-    total = 0.0
-    for a_s, a_e in intervals_a:
-        for b_s, b_e in intervals_b:
-            lo = max(a_s, b_s)
-            hi = min(a_e, b_e)
-            if hi > lo:
-                total += hi - lo
-    return total
-
-
-def _observable_phase_intervals(phases, obs_mask):
+def _unwrapped_phase(phases):
     """
-    Extract non-wrapping phase intervals from an observable mask.
-    Split at phase discontinuities > 0.5 (wrap-around).
+    Orbital phase made continuous across the night grid: 0.98 followed by
+    0.01 becomes 0.98, 1.01.  The integer part then counts the orbits
+    started during the night.  Valid because a grid step is far shorter
+    than half an orbit.
+    """
+    ph = np.asarray(phases, dtype=float)
+    if ph.size == 0:
+        return ph
+    steps = (np.diff(ph) + 0.5) % 1.0 - 0.5
+    return ph[0] + np.concatenate(([0.0], np.cumsum(steps)))
+
+
+def _observable_stretches(cycles, obs_mask):
+    """
+    ``(start, end)`` in unwrapped phase of each contiguous observable stretch
+    of the night.  The phases between two stretches -- e.g. a target near the
+    pole that dips below the altitude limit around lower culmination -- never
+    count as observable.
     """
     idx = np.where(obs_mask)[0]
     if len(idx) == 0:
         return []
+    breaks = np.where(np.diff(idx) > 1)[0] + 1
+    return [(float(cycles[st[0]]), float(cycles[st[-1]]))
+            for st in np.split(idx, breaks)]
 
-    ph = phases[idx]
-    intervals = []
-    seg_start = ph[0]
-    prev = ph[0]
 
-    for k in range(1, len(ph)):
-        diff = ph[k] - prev
-        if abs(diff) > 0.5:
-            # Phase wrapped, extend to boundary for continuity
-            if prev > 0.5:
-                intervals.append((seg_start, 1.0))
-            else:
-                intervals.append((seg_start, prev))
-            if ph[k] < 0.5:
-                seg_start = 0.0
-            else:
-                seg_start = ph[k]
-        prev = ph[k]
-    intervals.append((seg_start, prev))
-
-    # Fix segments where start > end (actual wrap within segment)
-    fixed = []
-    for s, e in intervals:
-        if s <= e:
-            fixed.append((s, e))
-        else:
-            fixed.append((s, 1.0))
-            fixed.append((0.0, e))
-    return fixed
+def _window_span(intervals):
+    """
+    One event window as a single ``(start, end)`` in orbital phase; the
+    transit window ``[(1 - h, 1), (0, h)]`` becomes ``(-h, h)``.
+    """
+    if len(intervals) == 2 and intervals[0][1] == 1.0 and intervals[1][0] == 0.0:
+        return intervals[0][0] - 1.0, intervals[1][1]
+    if len(intervals) == 1:
+        return intervals[0]
+    raise ValueError(f"unexpected event window {intervals!r}")
 
 
 def match_events(night, event_windows, event_constraints, geom):
     """
     For one observable night, check which events are schedulable.
 
+    Each orbit is matched on its own: when the period is shorter than the
+    night, the partial events of two consecutive orbits are two events, each
+    with its own coverage, and never one event with their summed coverage.
+
     Returns list of event dicts.
     """
     if not night["has_obs"]:
         return []
 
-    obs_intervals = _observable_phase_intervals(
-        night["phases"], night["obs_mask"])
-    if not obs_intervals:
+    obs_mask = np.asarray(night["obs_mask"], dtype=bool)
+    phases = np.asarray(night["phases"], dtype=float)
+    cycles = _unwrapped_phase(phases)
+    stretches = _observable_stretches(cycles, obs_mask)
+    if not stretches:
         return []
 
     results = []
@@ -1060,7 +1230,8 @@ def match_events(night, event_windows, event_constraints, geom):
         if not evt_intervals:
             continue
 
-        evt_width = _interval_width(evt_intervals)
+        lo, hi = _window_span(evt_intervals)
+        evt_width = hi - lo
         # NaN interval bounds must reject the event, not silently pass every
         # comparison below (NaN comparisons are always False): a non-finite
         # width belongs to unresolved geometry that compute_event_windows
@@ -1069,45 +1240,43 @@ def match_events(night, event_windows, event_constraints, geom):
         if not np.isfinite(evt_width) or evt_width <= 0:
             continue
 
-        inter_width = _interval_intersection_width(obs_intervals, evt_intervals)
-        coverage = inter_width / evt_width
-
         min_cov = event_constraints.get(event_type, {}).get("min_coverage", 1.0)
-        if not np.isfinite(coverage) or coverage < min_cov:
-            continue
 
-        # Find UT times and altitude at midpoint of the intersection
-        in_event_mask = np.zeros(len(night["phases"]), dtype=bool)
-        for s, e in evt_intervals:
-            if s <= e:
-                in_event_mask |= ((night["phases"] >= s) & (night["phases"] <= e))
-            else:
-                in_event_mask |= ((night["phases"] >= s) | (night["phases"] <= e))
+        # Every orbit whose window reaches into the night grid, in phase
+        # relative to that orbit, so that a window fully inside a stretch
+        # gives a coverage of exactly 1.
+        for k in range(int(np.floor(cycles[0] - hi)),
+                       int(np.ceil(cycles[-1] - lo)) + 1):
+            inter_width = sum(max(0.0, min(hi, s1 - k) - max(lo, s0 - k))
+                              for s0, s1 in stretches)
+            coverage = inter_width / evt_width
+            if not np.isfinite(coverage) or coverage < min_cov:
+                continue
 
-        combined = night["obs_mask"] & in_event_mask
-        idx_combined = np.where(combined)[0]
-        if len(idx_combined) == 0:
-            continue
+            # UT times and altitude at midpoint of the intersection
+            in_window = (cycles - k >= lo) & (cycles - k <= hi)
+            idx_combined = np.where(obs_mask & in_window)[0]
+            if len(idx_combined) == 0:
+                continue
+            idx_window = np.where(in_window)[0]
 
-        i_start = idx_combined[0]
-        i_end = idx_combined[-1]
-        i_mid = idx_combined[len(idx_combined) // 2]
+            i_start = idx_combined[0]
+            i_end = idx_combined[-1]
+            i_mid = idx_combined[len(idx_combined) // 2]
 
-        ut_start = night["times_utc"][i_start].iso
-        ut_end = night["times_utc"][i_end].iso
-        alt_mid = float(night["target_alt"][i_mid])
-        phase_mid = float(night["phases"][i_mid])
-
-        results.append({
-            "event_type": event_type,
-            "coverage": float(coverage),
-            "phase_start": float(night["phases"][i_start]),
-            "phase_end": float(night["phases"][i_end]),
-            "phase_mid": phase_mid,
-            "ut_start": ut_start,
-            "ut_end": ut_end,
-            "alt_at_midpoint": alt_mid,
-        })
+            results.append({
+                "event_type": event_type,
+                "coverage": float(coverage),
+                "phase_start": float(phases[i_start]),
+                "phase_end": float(phases[i_end]),
+                "phase_mid": float(phases[i_mid]),
+                "ut_start": night["times_utc"][i_start].iso,
+                "ut_end": night["times_utc"][i_end].iso,
+                "alt_at_midpoint": float(night["target_alt"][i_mid]),
+                # Grid samples inside this orbit's window, observable or not,
+                # for the plots (not saved to CSV).
+                "_span": (int(idx_window[0]), int(idx_window[-1])),
+            })
 
     return results
 
@@ -1124,6 +1293,7 @@ def main():
         FETCH_NEA_ONLINE, NEA_FETCH_TIMEOUT, PRESELECTION_MIN_YEAR,
         SKY_TRANSMISSION_FITS, TELLURIC_LAMBDA_RANGE_NM,
         TELLURIC_RV_GRID_KMS, TELLURIC_PAD_HOURS, TELLURIC_EXP_TIME_S,
+        USE_ECC_UPPER_LIMITS,
     )
     from nea_fetch import resolve_catalog_path
     from phase_plotter import plot_event, plot_calendar, plot_PR_landscape
@@ -1182,14 +1352,16 @@ def main():
     all_events = []
 
     # ── Inject CUSTOM_PLANETS from config ─────────────────────────
-    # When a custom entry shares its pl_name with a catalog row, the catalog
-    # row is taken as the base and only the fields the user explicitly listed
-    # in CUSTOM_PLANETS override it.  This keeps catalog-derived parameters
-    # (st_mass, pl_orbincl, pl_orbsmax, pl_orbeccen, …) intact, so downstream
-    # quantities like Kp still compute, while still letting v_sys / mass /
-    # ephemeris be overridden per planet.
+    # Custom planets are added after the filters and are not filtered
+    # themselves.  When a custom entry shares its pl_name with a row of the
+    # filtered catalog, that row is taken as the base and only the fields the
+    # user explicitly listed in CUSTOM_PLANETS override it.  This keeps
+    # catalog-derived parameters (st_mass, pl_orbincl, pl_orbsmax,
+    # pl_orbeccen, …) intact, so downstream quantities like Kp still compute,
+    # while still letting v_sys / mass / ephemeris be overridden per planet.
+    # An entry for a planet the filters removed is scheduled from its own
+    # fields alone.
     if CUSTOM_PLANETS:
-        _mag_map = {"st_jmag": "sy_jmag", "st_kmag": "sy_kmag"}
         custom_names = {cp.get("pl_name") for cp in CUSTOM_PLANETS
                         if cp.get("pl_name")}
         catalog_by_name = {}
@@ -1200,14 +1372,12 @@ def main():
         _rows = []
         n_merged = 0
         for cp in CUSTOM_PLANETS:
-            override = {_mag_map.get(k, k): v for k, v in cp.items()}
             base = catalog_by_name.get(cp.get("pl_name"))
+            row = merge_custom_planet(base, cp)      # custom wins per field
             if base is not None:
-                row = {**base, **override}  # custom wins per field
                 row["catalog_source"] = "custom+nea"
                 n_merged += 1
             else:
-                row = override
                 row.setdefault("catalog_source", "custom")
             row.setdefault("_ref_label", "custom")
             row.setdefault("_ref_rank", 1)
@@ -1227,7 +1397,8 @@ def main():
         print(f"  ● [{i_planet}/{n_planets}] {name}")
         print(f"{'=' * 60}")
 
-        geom = compute_transit_geometry(row)
+        geom = compute_transit_geometry(
+            row, ecc_upper_limits_as_values=USE_ECC_UPPER_LIMITS)
         print(f"  T14 = {geom['t14_h']:.2f} h  |  "
               f"phi_sec = {geom['phi_sec']:.4f}  |  "
               f"ecc = {geom['ecc']:.4f}")
@@ -1261,9 +1432,17 @@ def main():
         safe_name = name.replace(" ", "_")
         planet_dir = os.path.join(OUTPUT_DIR, safe_name + suffix)
 
+        # Systemic velocity for the telluric page and the card: user value,
+        # then the archive's st_radv, then Gaia DR3 / SIMBAD.  None when no
+        # source has it, in which case the telluric page is skipped.
+        vsys = resolve_systemic_velocity(row)
+        if vsys is not None and vsys[2] not in ("user", "NEA"):
+            print(f"  v_sys = {vsys[0]:+.2f} ± {vsys[1]:.2f} km/s from "
+                  f"{vsys[2]} (none in the archive)")
+
         try:
             summary_path = render_planet_summary(row, metrics, planet_dir,
-                                                 geom=geom)
+                                                 geom=geom, vsys=vsys)
             print(f"  summary → {summary_path}")
         except Exception as e:
             print(f"  ⚠  summary card failed for {name}: {e}")
@@ -1309,12 +1488,7 @@ def main():
         delta_s = (t0_bjd - t0_raw) * 86400.0
         print(f"  T0 system: {tsys!r} → BJD_TDB; Δ = {delta_s:+.2f} s")
 
-        # vsys for telluric-position plot: prefer per-target user override,
-        # fall back to NEA st_radv. None when neither is finite.
-        v_sys_user = row.get("v_sys")
-        v_sys_cat = row.get("st_radv")
-        v_sys_pick = v_sys_user if pd.notna(v_sys_user) else v_sys_cat
-        v_sys_kms = float(v_sys_pick) if pd.notna(v_sys_pick) else None
+        v_sys_kms = vsys[0] if vsys is not None else None
 
         # Planet RV semi-amplitude Kp: needed for the telluric plot's
         # planet-RV band. Falls back to None if period / st_mass / mass missing.
@@ -1327,9 +1501,9 @@ def main():
         # Orbit shape for the planetary RV trace.  Kept as None when the
         # catalogue does not give them, so that phase_kepler can pick the
         # circular / Keplerian / omega-envelope branch explicitly instead of
-        # silently defaulting.
-        ecc_cat = row.get("pl_orbeccen")
-        omega_cat = row.get("pl_orblper")
+        # silently defaulting.  omega_p = catalogue omega_star + 180 deg.
+        ecc_rv, omega_p_rv = rv_orbit_shape(
+            row, ecc_upper_limits_as_values=USE_ECC_UPPER_LIMITS)
 
         target = {
             "name": name,
@@ -1338,9 +1512,12 @@ def main():
             "period": float(row["pl_orbper"]),
             "t0_bjd": t0_bjd,
             "v_sys_kms": v_sys_kms,
+            "v_sys_source": vsys[2] if vsys is not None else None,
             "kp_kms": kp_kms,
-            "ecc": float(ecc_cat) if pd.notna(ecc_cat) else None,
-            "omega_p_deg": float(omega_cat) if pd.notna(omega_cat) else None,
+            "ecc": ecc_rv,
+            "omega_p_deg": omega_p_rv,
+            "ecc_upper_limit": (ecc_rv is not None and limit_flag(
+                row.get("pl_orbeccenlim")) == 1),
         }
 
         print(f"  Computing nights ({DATE_RANGE['start']} → "
